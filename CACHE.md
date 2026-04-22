@@ -14,8 +14,9 @@
 ## 当前下一步
 
 - 当前 5 个 core blocks 已补到：标准样本 + success/error + boundary + invalid + validator + build gate
-- 下一步按用户要求切到：定义手机端 UI 界面
-- UI 界面之后，再回到 flow 编排与 runtime 落地
+- 当前已切到：手机端 UI 界面规格定义
+- 下一步进入：悬浮球 UI 的模块拆分与最小实现顺序
+- UI 稳定后，再回到 flow 编排与 runtime 落地
 
 ## 当前新增约束
 

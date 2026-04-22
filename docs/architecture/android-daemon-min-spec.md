@@ -17,6 +17,7 @@
 - 这是 **exploration runtime**，不是正式 APP 脚手架
 - 只服务于实验闭环：`receive command -> execute -> report -> log`
 - 只要最小链路未验证，不扩张到正式功能层
+- 正式产品 UI 形态单独定义在 `docs/architecture/android-overlay-ui-spec.md`
 
 ## 最小能力范围
 
@@ -26,6 +27,7 @@
 - 可长时保持运行
 - 可显示当前状态（idle / busy / error / disconnected）
 - 可被用户可见地停止或重启
+- 正式产品中由 `Foreground Service` 承担常驻主干；悬浮球只承担 UI 入口
 
 ### 2. Command channel
 - 接收 Mac 端命令

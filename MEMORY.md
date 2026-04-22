@@ -19,3 +19,4 @@
 - block 的测试不只测 input example，还要测标准 success result / error result 形状。
 - 流程如果会重复出现，必须沉淀到文档 + skill + 可执行脚本，而不是只留在聊天记录里。
 - block 规格补完的最小标准是：标准 example + success/error result + valid boundary fixture + invalid fixture + validator 拒绝测试 + build 集成 gate。
+- 手机端正式 UI 第一版采用悬浮球 + 展开菜单；悬浮球是交互入口，不是主保活机制，后台常驻主干仍是 Foreground Service。

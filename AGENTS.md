@@ -52,6 +52,7 @@
 - `./note.md`：探索日记、实验假设、失败记录、下一步。
 - `./.agent/flowy-dev-skill/`：本地开发工作流与调试方法真源。
 - `./docs/architecture/`：目录结构、模块职责、升级策略、门禁设计。
+- `./docs/architecture/android-overlay-ui-spec.md`：手机端悬浮球与展开菜单 UI 真源。
 - `./docs/architecture/operation-observer-anchor-workflow.md`：正式基座的执行模型真源。
 - `./docs/architecture/blocks-interface-spec.md`：blocks 最小接口真源。
 - `./docs/architecture/workspace-structure.md`：workspace 目录结构与模块落位真源。
