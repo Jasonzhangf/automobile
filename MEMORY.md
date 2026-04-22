@@ -22,3 +22,4 @@
 - 手机端正式 UI 第一版采用悬浮球 + 展开菜单；悬浮球是交互入口，不是主保活机制，后台常驻主干仍是 Foreground Service。
 - overlay workbench v1 的真目标是建立“观察 -> 捕获 -> 测试 -> 保存 -> 素材化”的开发闭环，且 Android 第一主路径是被动模式。
 - 500 行硬门限只约束代码文件，不约束架构文档与说明文档。
+- Android workbench 第一批骨架可以先用 overlay service + status polling + shared-preference overrides 落地，先把交互入口和被动模式状态桥接接上，再逐步替换成更深的 runtime 集成。

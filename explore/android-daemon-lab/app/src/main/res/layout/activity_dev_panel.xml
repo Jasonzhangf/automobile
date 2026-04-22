@@ -1,71 +1,103 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
   android:layout_width="match_parent"
-  android:layout_height="match_parent"
-  android:orientation="vertical"
-  android:padding="16dp">
+  android:layout_height="match_parent">
 
-  <TextView
-    android:id="@+id/textVersion"
+  <LinearLayout
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:textStyle="bold" />
+    android:orientation="vertical"
+    android:padding="16dp">
 
-  <TextView
-    android:id="@+id/textServer"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_marginTop="8dp" />
+    <TextView
+      android:id="@+id/textVersion"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:textStyle="bold" />
 
-  <TextView
-    android:id="@+id/textStatus"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_marginTop="8dp" />
+    <TextView
+      android:id="@+id/textServer"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="8dp" />
 
-  <TextView
-    android:id="@+id/textHeartbeat"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_marginTop="8dp" />
+    <TextView
+      android:id="@+id/textStatus"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="8dp" />
 
-  <TextView
-    android:id="@+id/textProjectionStatus"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_marginTop="8dp" />
+    <TextView
+      android:id="@+id/textHeartbeat"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="8dp" />
 
-  <TextView
-    android:id="@+id/textAccessibilityStatus"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_marginTop="8dp" />
+    <TextView
+      android:id="@+id/textProjectionStatus"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="8dp" />
 
-  <Button
-    android:id="@+id/buttonStart"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_marginTop="16dp"
-    android:text="Start Daemon" />
+    <TextView
+      android:id="@+id/textAccessibilityStatus"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="8dp" />
 
-  <Button
-    android:id="@+id/buttonStop"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_marginTop="8dp"
-    android:text="Stop Daemon" />
+    <TextView
+      android:id="@+id/textOverlayStatus"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="8dp" />
 
-  <Button
-    android:id="@+id/buttonGrantProjection"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_marginTop="8dp"
-    android:text="Grant Screenshot Permission" />
+    <Button
+      android:id="@+id/buttonStart"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="16dp"
+      android:text="Start Daemon" />
 
-  <Button
-    android:id="@+id/buttonOpenAccessibility"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_marginTop="8dp"
-    android:text="Open Accessibility Settings" />
-</LinearLayout>
+    <Button
+      android:id="@+id/buttonStop"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="8dp"
+      android:text="Stop Daemon" />
+
+    <Button
+      android:id="@+id/buttonGrantProjection"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="8dp"
+      android:text="Grant Screenshot Permission" />
+
+    <Button
+      android:id="@+id/buttonOpenAccessibility"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="8dp"
+      android:text="Open Accessibility Settings" />
+
+    <Button
+      android:id="@+id/buttonGrantOverlay"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="8dp"
+      android:text="Grant Overlay Permission" />
+
+    <Button
+      android:id="@+id/buttonOpenWorkbench"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="8dp"
+      android:text="Open Workbench Overlay" />
+
+    <Button
+      android:id="@+id/buttonCloseWorkbench"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="8dp"
+      android:text="Close Workbench Overlay" />
+  </LinearLayout>
+</ScrollView>

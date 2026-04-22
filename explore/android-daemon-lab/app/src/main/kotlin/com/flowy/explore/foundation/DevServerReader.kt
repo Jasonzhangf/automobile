@@ -15,12 +15,14 @@ data class DevServerConfig(
 }
 
 class DevServerReader(private val context: Context) {
+  private val overrideStore = DevServerOverrideStore(context)
+
   fun read(): DevServerConfig {
     val raw = context.assets.open("dev-server.json").bufferedReader().use { it.readText() }
     val json = JSONObject(raw)
     return DevServerConfig(
-      host = json.getString("host"),
-      port = json.getInt("port"),
+      host = overrideStore.hostOverride() ?: json.getString("host"),
+      port = overrideStore.portOverride() ?: json.getInt("port"),
       wsPath = json.getString("wsPath"),
       artifactPath = json.optString("artifactPath", "/exp01/artifacts"),
     )

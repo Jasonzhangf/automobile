@@ -15,7 +15,8 @@
 
 - 当前 5 个 core blocks 已补到：标准样本 + success/error + boundary + invalid + validator + build gate
 - 当前已切到：悬浮球开发工作台 V1 规格定义
-- 下一步进入：按 workbench spec 落最小 UI 骨架与 passive-mode bridge
+- 当前已完成：最小 UI 骨架与 passive-mode bridge 第一批代码
+- 下一步进入：capture mode 的 target 选中 / confirm / alias / test / save 空骨架
 - UI 稳定后，再回到 flow 编排与 runtime 落地
 
 ## 当前新增约束
