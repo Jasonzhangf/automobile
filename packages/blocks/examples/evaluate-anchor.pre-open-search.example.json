@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "flowy-block-spec-v1",
+  "blockId": "evaluate_pre_anchor_open_search",
+  "kind": "evaluate-anchor",
+  "input": {
+    "pageStateRef": "page-state:current",
+    "anchorRef": "anchor:open_xhs_search_anchor",
+    "phase": "pre"
+  },
+  "timeoutMs": 2000
+}

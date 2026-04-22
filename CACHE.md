@@ -13,9 +13,9 @@
 
 ## 当前下一步
 
-- 验证并固化 Android lab build/test pipeline
-- 再把 `blocks` 的最小接口定清
+- 固化 `blocks` 最小接口真源
 - 再进入单步 workflow engine 设计
+- 再把 flow templates 定清
 - 最后再接平台 runtime
 
 ## 当前新增约束
