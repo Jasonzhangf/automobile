@@ -77,20 +77,23 @@ explore/android-daemon-lab/config/runtime-version.json
 
 ```text
 scripts/dev/build-android-lab.sh
+-> check-file-lines
+-> blocks-spec-unit
+-> blocks-spec-coverage
 -> Gradle preBuild
    -> bumpRuntimeVersion
    -> checkFileLines
 -> testDebugUnitTest
--> blocks coverage checks
 -> assembleDebug
 -> apk exists smoke
 ```
 
 说明：
 
+- build 入口脚本会先显式执行 repo 级 gate，再进入 Gradle
 - `bumpRuntimeVersion` 在 Gradle `preBuild` 阶段自动执行
 - `assembleDebug` 依赖 `testDebugUnitTest`
-- 构建脚本再追加最小产物 smoke
+- 构建脚本最后追加最小产物 smoke
 
 ---
 
@@ -102,6 +105,10 @@ scripts/dev/build-android-lab.sh
 
 - 启动 Android lab 的正式构建入口
 - 读取 build 前版本
+- 执行 repo 级 gate：
+  - `check-file-lines`
+  - `blocks-spec-unit`
+  - `blocks-spec-coverage`
 - 触发完整构建
 - 输出 build 后版本
 - 检查 APK 是否生成
@@ -140,9 +147,10 @@ scripts/dev/build-android-lab.sh
 
 1. `runtime-version.json` 已自动 bump
 2. `check-file-lines` 通过
-3. `testDebugUnitTest` 通过
-4. block 覆盖验证通过
-5. `app-debug.apk` 已生成
+3. `blocks-spec-unit` 通过
+4. `blocks-spec-coverage` 通过
+5. `testDebugUnitTest` 通过
+6. `app-debug.apk` 已生成
 
 任意一项失败：
 

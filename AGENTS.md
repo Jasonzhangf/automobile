@@ -56,6 +56,7 @@
 - `./docs/architecture/blocks-interface-spec.md`：blocks 最小接口真源。
 - `./docs/architecture/workspace-structure.md`：workspace 目录结构与模块落位真源。
 - `./docs/architecture/development-workflow.md`：模块开发、测试、经验沉淀流程真源。
+- `./docs/architecture/module-delivery-playbook.md`：每次模块交付的执行节奏与门禁真源。
 - `./docs/architecture/build-test-pipeline.md`：版本 bump 与 build/test 流水线真源。
 - `./docs/experiments/`：当前实验规格、成功判据、实验边界。
 

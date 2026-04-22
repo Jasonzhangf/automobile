@@ -16,6 +16,15 @@ PY
 echo "android-lab build start"
 echo "version before: $before_version"
 
+echo "gate: check-file-lines"
+"$repo_root/scripts/verify/check-file-lines.sh"
+
+echo "gate: blocks-spec-unit"
+"$repo_root/scripts/verify/blocks-spec-unit.sh"
+
+echo "gate: blocks-spec-coverage"
+"$repo_root/scripts/verify/blocks-spec-coverage.sh"
+
 cd "$project_dir"
 "$gradle_bin" :app:assembleDebug
 

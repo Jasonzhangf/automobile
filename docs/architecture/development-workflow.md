@@ -9,6 +9,11 @@
 3. 如何测试
 4. 如何沉淀经验
 
+补充说明：
+
+- 具体执行节奏以 `docs/architecture/module-delivery-playbook.md` 为准。
+- 本文负责“开发流程结构”，playbook 负责“每次交付如何落地执行”。
+
 ---
 
 ## 一、一个模块的标准开发顺序
@@ -113,6 +118,25 @@ review scope
 - foundation：单测
 - blocks：**单测 -> 覆盖测试 -> 编排前验证**
 - flows：在 blocks 测通后，再做编排测试 + 真实 smoke
+
+### Step 4：把流程沉淀成可执行真源
+
+如果一条流程会重复出现，就不能只留在聊天记录里。
+
+至少要沉淀成下面之一：
+
+- `scripts/verify/*` 的可执行 gate
+- `scripts/dev/*` 的 build / dev 入口
+- `.agent/flowy-dev-skill/SKILL.md` 的固定执行方法
+- `docs/architecture/module-delivery-playbook.md` 的标准交付节奏
+
+规则：
+
+- 文档负责说明
+- 脚本负责执行
+- skill 负责未来重复使用
+
+只写文档、不进脚本，不算流程真正落地。
 
 ---
 

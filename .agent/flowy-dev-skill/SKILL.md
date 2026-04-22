@@ -14,11 +14,12 @@ Treat this repository as an early-stage product lab for a **visible Android auto
 ## Read Order
 
 1. Read `./AGENTS.md` for project facts and current boundaries.
-2. Read `./note.md` for recent exploration history, hypotheses, and failed attempts.
-3. Read `docs/experiments/` for the current experiment spec and gates.
-4. Read `references/evidence-bundle.md` only when defining debug artifacts, transport payloads, or experiment evidence.
-5. Make the smallest vertical change that improves one step of the perception loop.
-6. During exploration, prefer experiment artifacts and thin prototypes; do **not** expand into formal scaffolding before the experiment exit criteria are proven.
+2. Read `docs/architecture/module-delivery-playbook.md` for the fixed development / verification / distillation rhythm.
+3. Read `./note.md` for recent exploration history, hypotheses, and failed attempts.
+4. Read `docs/experiments/` for the current experiment spec and gates.
+5. Read `references/evidence-bundle.md` only when defining debug artifacts, transport payloads, or experiment evidence.
+6. Make the smallest vertical change that improves one step of the perception loop.
+7. During exploration, prefer experiment artifacts and thin prototypes; do **not** expand into formal scaffolding before the experiment exit criteria are proven.
 
 ## Current Development Focus
 
@@ -67,6 +68,28 @@ Run this loop for nearly every feature:
 7. Promote only stable findings into `AGENTS.md`.
 
 Never skip step 5. No artifact review means the capability is not verified.
+
+## Delivery Rhythm
+
+When the task is no longer a one-off experiment and needs to become repo truth, follow:
+
+```text
+scope
+-> truth
+-> fixtures
+-> tests
+-> implementation
+-> verify
+-> evidence
+-> distill
+```
+
+Use `docs/architecture/module-delivery-playbook.md` as the detailed truth source.
+
+Two hard rules:
+
+1. If the repo rule says a gate is required, make it executable in `scripts/verify/` or `scripts/dev/`, not only descriptive in markdown.
+2. If a finding is stable enough to guide future work, promote it into `MEMORY.md`, `AGENTS.md`, or this skill instead of leaving it only in chat.
 
 ## Debug Contract for Phone <-> Mac
 
@@ -135,6 +158,7 @@ Treat these as hard requirements:
 - Every build must automatically run regression tests. No compile-only success is acceptable.
 - Keep build/verify/release entrypoints under `scripts/dev`, `scripts/verify`, and `scripts/release`.
 - Keep Mac daemon and Android daemon code in separate modules; keep shared schemas/config under `packages/`.
+- For block work, require: unit tests -> coverage tests -> build integration, and only then move to flow orchestration.
 
 ## Exploration-First Rule
 

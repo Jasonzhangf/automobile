@@ -13,7 +13,8 @@
 
 ## 当前下一步
 
-- 补齐 `blocks` 的 result/error 形状验证
+- 把开发/验证/沉淀流程固定进 playbook + skill + build 入口
+- 补 `blocks` 的边界样本与边界测试
 - 再进入单步 workflow engine 设计
 - 再把 flow templates 定清
 - 最后再接平台 runtime
