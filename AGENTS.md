@@ -22,6 +22,7 @@
 - 手机端的操作与反馈必须统一成 **CLI + WebSocket 控制面**：手机端 WebSocket 可连接本地或远端控制端口；远端控制端口必须可被 CLI 包装，也可被 WebSocket 直接驱动。
 - 手机端必须支持 **内建升级**；runtime update 与 APK update 都通过 daemon 通信链路和同一套配置真源协同完成。
 - 全局代码组织固定为：**共用函数库（foundation）+ 能力块（blocks）+ 编排（flows）**，且每个功能实现必须保持**唯一真源**。
+- 每次 build 必须自动 **bump 版本 + 跑测试**；不接受 compile-only build。
 - 当前开发拓扑：**Mac 本地 daemon + 手机端 Agent**；手机端的识别结果与截图需要方便地回收到 Mac 调试。
 - 工作区采用 **双 daemon + shared packages** 的 monorepo 结构。
 - 当前 Android 侧最小实验对象是 **long-running daemon runtime**，不是正式 APP 脚手架。
@@ -53,6 +54,7 @@
 - `./docs/architecture/operation-observer-anchor-workflow.md`：正式基座的执行模型真源。
 - `./docs/architecture/workspace-structure.md`：workspace 目录结构与模块落位真源。
 - `./docs/architecture/development-workflow.md`：模块开发、测试、经验沉淀流程真源。
+- `./docs/architecture/build-test-pipeline.md`：版本 bump 与 build/test 流水线真源。
 - `./docs/experiments/`：当前实验规格、成功判据、实验边界。
 
 ## 标准执行顺序

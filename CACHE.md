@@ -13,7 +13,7 @@
 
 ## 当前下一步
 
-- 固化 `page-model` 真源
+- 验证并固化 Android lab build/test pipeline
 - 再把 `blocks` 的最小接口定清
 - 再进入单步 workflow engine 设计
 - 最后再接平台 runtime

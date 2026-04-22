@@ -13,3 +13,4 @@
 - 手机端操作与反馈统一走 CLI + WebSocket 控制面；CLI 与 WebSocket 必须共享同一套 command/event 真源。
 - 手机端升级必须内建，并与 daemon 通信链路及共享 server profile 统一。
 - 全局实现遵守：`foundation -> blocks -> flows`，每个功能必须只有一个权威实现。
+- 每次 build 必须自动 bump 版本，并在 build 流程内自动跑测试；compile-only 不算有效构建。

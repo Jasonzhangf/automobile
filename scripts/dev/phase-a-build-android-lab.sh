@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
 repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
-gradle_bin="$HOME/.gradle/wrapper/dists/gradle-8.3-all/6en3ugtfdg5xnpx44z4qbwgas/gradle-8.3/bin/gradle"
-cd "$repo_root/explore/android-daemon-lab"
-"$gradle_bin" :app:assembleDebug
+"$repo_root/scripts/dev/build-android-lab.sh"
