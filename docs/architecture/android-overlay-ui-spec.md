@@ -2,7 +2,13 @@
 
 ## 目标
 
-定义 Flowy 手机端第一版正式 UI：
+定义 Flowy 手机端第一版正式 UI。
+
+当前这一版首先服务于：
+
+- `docs/architecture/android-overlay-workbench-spec.md`
+
+也就是“开发工作台骨架”，不是完整产品化 UI。
 
 - 形态是 **悬浮球**
 - 默认 **半透明、贴边、低占用**
@@ -75,37 +81,24 @@ FloatingBallOverlay
 - 点击空白区域：收起
 - 再次点击悬浮球：收起
 
-展开菜单固定为 4 组：
+在 workbench v1 中，展开菜单固定为：
 
-#### A. 运行状态
+#### A. 上半区：运行状态
 
 - daemon：running / stopped
 - control channel：connected / disconnected
 - accessibility：enabled / disabled
 - screenshot session：ready / missing
 
-#### B. 快捷动作
+#### B. 下半区：一级菜单入口
 
-- start daemon
-- stop daemon
-- capture screenshot
-- dump accessibility tree
-- sync current page state
-- reconnect control channel
+- Agent 自身控制
+- 捕获模式
+- 系统设置
 
-#### C. 调试入口
+详细职责与 V1 闭环定义见：
 
-- recent commands
-- recent events
-- logs
-- artifacts summary
-
-#### D. 系统入口
-
-- permissions check
-- battery optimization status
-- update check
-- open full debug panel
+- `docs/architecture/android-overlay-workbench-spec.md`
 
 ---
 

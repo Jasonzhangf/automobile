@@ -18,6 +18,7 @@
 - 只服务于实验闭环：`receive command -> execute -> report -> log`
 - 只要最小链路未验证，不扩张到正式功能层
 - 正式产品 UI 形态单独定义在 `docs/architecture/android-overlay-ui-spec.md`
+- 第一版开发骨架定义在 `docs/architecture/android-overlay-workbench-spec.md`
 
 ## 最小能力范围
 
@@ -31,6 +32,7 @@
 
 ### 2. Command channel
 - 接收 Mac 端命令
+- 当前第一主路径是 **被动模式**：Android agent 主要接受 Mac daemon 驱动
 - 命令至少支持：
   - ping
   - capture-page
@@ -164,7 +166,7 @@ packages/config/version/
 
 任何一次编译都必须自动执行：
 
-1. 文件行数检查（<= 500）
+1. 代码文件行数检查（<= 500）
 2. 单元测试 / block 级验证
 3. 回归测试
 4. 编译产物生成

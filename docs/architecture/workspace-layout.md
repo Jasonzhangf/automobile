@@ -290,7 +290,7 @@ scripts/
 │  ├─ android-runtime-sync.*    # partial 文件同步
 │  └─ full-dev-loop.*           # 一键本地开发循环
 ├─ verify/
-│  ├─ check-file-lines.*        # 检查单文件 <= 500 行
+│  ├─ check-file-lines.*        # 检查代码文件单文件 <= 500 行
 │  ├─ run-regression.*          # 编译后自动跑回归
 │  ├─ verify-mac-daemon.*       # Mac daemon 验证
 │  └─ verify-android-agent.*    # Android 端验证
@@ -305,11 +305,11 @@ scripts/
 
 ### 1. 单文件行数限制
 
-**硬性规则：每个源码文件 <= 500 行。**
+**硬性规则：每个代码文件 <= 500 行；文档不受该门限约束。**
 
 要求：
 - `scripts/verify/check-file-lines.*` 必须进入本地构建和 CI。
-- 超过 500 行直接失败，不允许靠 review 口头放过。
+- 超过 500 行的代码文件直接失败，不允许靠 review 口头放过。
 - 大文件必须拆成：orchestration / blocks / pure helpers。
 
 ### 2. 每次编译自动跑回归
@@ -427,7 +427,7 @@ apps/android-agent/runtime/
 - 不在现在定义复杂发布流水线
 - 不在现在把所有升级通道一次做完
 - 不在现在把操作执行和感知耦合
-- 不接受任何 >500 行文件作为“先跑通再说”的例外
+- 不接受任何 >500 行代码文件作为“先跑通再说”的例外
 
 ## 版本规则
 

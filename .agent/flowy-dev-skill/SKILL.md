@@ -154,7 +154,7 @@ When reporting work in this repo, keep it short and evidence-first:
 
 Treat these as hard requirements:
 
-- Every source file must stay at or under **500 lines**. Split before it exceeds the limit.
+- Every code file must stay at or under **500 lines**. Documentation is not bound by this limit.
 - Every build must automatically run regression tests. No compile-only success is acceptable.
 - Keep build/verify/release entrypoints under `scripts/dev`, `scripts/verify`, and `scripts/release`.
 - Keep Mac daemon and Android daemon code in separate modules; keep shared schemas/config under `packages/`.

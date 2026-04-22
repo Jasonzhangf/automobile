@@ -31,7 +31,7 @@
 - 升级分两类：**partial runtime upgrade** 与 **APK in-app update**。
 - 代码分三层：**foundation / blocks / flows**，三层必须独立。
 - 版本从 **`0.1.0001`** 起，每次编译自动 bump 四位 build number。
-- 每个源码文件 **不得超过 500 行**。
+- 每个**代码文件** **不得超过 500 行**；文档不受该门限约束。
 - 每次编译 **必须自动跑回归测试**。
 - 当前阶段已从实验闭环切到 **基座设计优先**；先固化基座模型，再进入正式实现。
 
@@ -41,7 +41,7 @@
 - 未经明确授权，不做删除/回滚/迁移/发布等破坏性操作。
 - 禁止 broad kill：`pkill` / `killall` / `kill $(...)` / `xargs kill`。
 - 事实进 `AGENTS.md`，探索进 `note.md`，详细结构进 `docs/architecture/*.md`。
-- 不接受任何超过 500 行的源码文件作为临时例外。
+- 不接受任何超过 500 行的代码文件作为临时例外。
 - 不接受只编译不回归的构建流程。
 - 当前空目录可作为保留路径，但在实验闭环前不视为正式模块开工。
 
@@ -53,6 +53,7 @@
 - `./.agent/flowy-dev-skill/`：本地开发工作流与调试方法真源。
 - `./docs/architecture/`：目录结构、模块职责、升级策略、门禁设计。
 - `./docs/architecture/android-overlay-ui-spec.md`：手机端悬浮球与展开菜单 UI 真源。
+- `./docs/architecture/android-overlay-workbench-spec.md`：第一版悬浮球开发工作台骨架真源。
 - `./docs/architecture/operation-observer-anchor-workflow.md`：正式基座的执行模型真源。
 - `./docs/architecture/blocks-interface-spec.md`：blocks 最小接口真源。
 - `./docs/architecture/workspace-structure.md`：workspace 目录结构与模块落位真源。

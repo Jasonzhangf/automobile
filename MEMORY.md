@@ -20,3 +20,5 @@
 - 流程如果会重复出现，必须沉淀到文档 + skill + 可执行脚本，而不是只留在聊天记录里。
 - block 规格补完的最小标准是：标准 example + success/error result + valid boundary fixture + invalid fixture + validator 拒绝测试 + build 集成 gate。
 - 手机端正式 UI 第一版采用悬浮球 + 展开菜单；悬浮球是交互入口，不是主保活机制，后台常驻主干仍是 Foreground Service。
+- overlay workbench v1 的真目标是建立“观察 -> 捕获 -> 测试 -> 保存 -> 素材化”的开发闭环，且 Android 第一主路径是被动模式。
+- 500 行硬门限只约束代码文件，不约束架构文档与说明文档。

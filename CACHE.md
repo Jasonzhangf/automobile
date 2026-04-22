@@ -14,8 +14,8 @@
 ## 当前下一步
 
 - 当前 5 个 core blocks 已补到：标准样本 + success/error + boundary + invalid + validator + build gate
-- 当前已切到：手机端 UI 界面规格定义
-- 下一步进入：悬浮球 UI 的模块拆分与最小实现顺序
+- 当前已切到：悬浮球开发工作台 V1 规格定义
+- 下一步进入：按 workbench spec 落最小 UI 骨架与 passive-mode bridge
 - UI 稳定后，再回到 flow 编排与 runtime 落地
 
 ## 当前新增约束
