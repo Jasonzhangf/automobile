@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "flowy-page-model-workflow-step-v1",
+  "workflowStepId": "open_xhs_search",
+  "name": "Open XHS Search",
+  "observerSpec": {
+    "requireAccessibility": true,
+    "requireScreenshot": false,
+    "requiredFilters": [
+      "filter:search_entry_filter"
+    ]
+  },
+  "targetFilterRef": "filter:search_entry_filter",
+  "operationRef": "operation:tap_search_entry",
+  "anchorRef": "anchor:open_xhs_search_anchor",
+  "retryPolicy": {
+    "maxAttempts": 1
+  }
+}

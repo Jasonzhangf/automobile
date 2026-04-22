@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "flowy-page-model-operation-v1",
+  "operationId": "tap_search_entry",
+  "kind": "tap",
+  "targetRef": "target:search_button",
+  "args": {},
+  "timeoutMs": 3000
+}

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "flowy-control-event-v1",
+  "eventId": "evt_20260422_0001",
+  "emittedAt": "2026-04-22T18:00:01+08:00",
+  "requestId": "req_20260422_0001",
+  "runId": "run_20260422_0001",
+  "device": {
+    "deviceId": "OP5DC1L1",
+    "runtimeVersion": "0.1.0020"
+  },
+  "event": {
+    "type": "workflow.step.succeeded",
+    "status": "ok",
+    "message": "step finished",
+    "data": {
+      "pageSignature": "e0644857b0d8"
+    }
+  },
+  "artifacts": [
+    {
+      "kind": "page-context",
+      "fileName": "page-context.json"
+    }
+  ],
+  "error": null
+}

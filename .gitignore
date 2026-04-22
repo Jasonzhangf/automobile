@@ -1,0 +1,11 @@
+.DS_Store
+.tmp/
+artifacts/
+**/.tmp/
+**/__pycache__/
+**/.gradle/
+**/build/
+*.pyc
+*.pyo
+*.apk
+*.ap_

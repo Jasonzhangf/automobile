@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "flowy-page-model-anchor-v1",
+  "anchorId": "open_xhs_search_anchor",
+  "preAnchor": {
+    "mustContainTexts": [
+      "搜索",
+      "发现"
+    ],
+    "targetVisible": true
+  },
+  "postAnchor": {
+    "anyOf": [
+      {
+        "pageTitle": "问ai"
+      },
+      {
+        "mustContainTexts": [
+          "猜你想搜",
+          "历史记录"
+        ]
+      }
+    ]
+  }
+}

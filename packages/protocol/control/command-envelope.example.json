@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "flowy-control-command-v1",
+  "requestId": "req_20260422_0001",
+  "sentAt": "2026-04-22T18:00:00+08:00",
+  "source": {
+    "kind": "cli",
+    "clientId": "flowyctl-local"
+  },
+  "target": {
+    "deviceId": "OP5DC1L1"
+  },
+  "command": {
+    "kind": "workflow.step.run",
+    "name": "open_xhs_search",
+    "runId": "run_20260422_0001",
+    "timeoutMs": 15000,
+    "payload": {
+      "workflowStepId": "open_xhs_search"
+    }
+  }
+}

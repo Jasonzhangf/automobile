@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "flowy-page-model-filter-v1",
+  "filterId": "search_entry_filter",
+  "kind": "actionable",
+  "match": {
+    "anyTexts": [
+      "搜索"
+    ],
+    "roles": [
+      "button",
+      "action",
+      "input"
+    ],
+    "visibleOnly": true
+  },
+  "select": {
+    "strategy": "first_best"
+  }
+}

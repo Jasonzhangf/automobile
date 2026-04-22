@@ -1,0 +1,96 @@
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+
+apply plugin: 'com.android.application'
+apply plugin: 'org.jetbrains.kotlin.android'
+
+def runtimeVersionFile = rootProject.file('config/runtime-version.json')
+def versionConfig = new JsonSlurper().parse(runtimeVersionFile)
+def versionNameValue = versionConfig.versionName
+def buildNumberValue = versionConfig.buildNumber as int
+
+android {
+    namespace 'com.flowy.explore'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.flowy.explore'
+        minSdk 29
+        targetSdk 34
+        versionCode buildNumberValue
+        versionName versionNameValue
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+            debuggable true
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    sourceSets {
+        main {
+            assets.srcDirs = ['../config']
+        }
+    }
+
+    testOptions {
+        unitTests.returnDefaultValues = true
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    testImplementation 'junit:junit:4.13.2'
+}
+
+def readVersionConfig = {
+    new JsonSlurper().parse(runtimeVersionFile)
+}
+
+tasks.register('bumpRuntimeVersion') {
+    doLast {
+        def config = readVersionConfig()
+        def buildNumber = (config.buildNumber as int) + 1
+        config.buildNumber = buildNumber
+        config.versionName = String.format('%s.%04d', config.majorMinor, buildNumber)
+        runtimeVersionFile.text = JsonOutput.prettyPrint(JsonOutput.toJson(config)) + '\n'
+    }
+}
+
+tasks.register('checkFileLines') {
+    doLast {
+        def offenders = []
+        rootProject.projectDir.eachFileRecurse { file ->
+            if (!file.isFile()) return
+            if (!(file.name.endsWith('.kt') || file.name.endsWith('.kts') || file.name.endsWith('.sh') || file.name.endsWith('.gradle'))) return
+            def lines = file.readLines().size()
+            if (lines > 500) offenders << "${rootProject.projectDir.toPath().relativize(file.toPath())} (${lines} lines)"
+        }
+        if (!offenders.isEmpty()) {
+            throw new GradleException('line-limit violation:\n' + offenders.join('\n'))
+        }
+    }
+}
+
+afterEvaluate {
+    tasks.named('preBuild') { dependsOn 'bumpRuntimeVersion', 'checkFileLines' }
+    tasks.named('assembleDebug') { dependsOn 'testDebugUnitTest' }
+}

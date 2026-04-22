@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "flowy-server-profile-v1",
+  "profileId": "dev-remote-default",
+  "profileName": "Remote Dev",
+  "active": true,
+  "controlMode": "remote",
+  "protocol": {
+    "control": "flowy-control-v1",
+    "artifact": "exp01",
+    "upgrade": "flowy-upgrade-v1"
+  },
+  "control": {
+    "httpBaseUrl": "http://127.0.0.1:8787/flowy/control",
+    "wsUrl": "ws://127.0.0.1:8787/flowy/control/ws",
+    "cliRouteBase": "/flowy/control/cli",
+    "commandRoute": "/flowy/control/command",
+    "eventRoute": "/flowy/control/events"
+  },
+  "artifacts": {
+    "uploadUrl": "http://127.0.0.1:8787/exp01/artifacts"
+  },
+  "upgrade": {
+    "checkUrl": "http://127.0.0.1:8787/flowy/upgrade/check",
+    "runtimeBundleUrl": "http://127.0.0.1:8787/flowy/upgrade/runtime",
+    "apkManifestUrl": "http://127.0.0.1:8787/flowy/upgrade/apk"
+  },
+  "runtime": {
+    "connectTimeoutMs": 8000,
+    "requestTimeoutMs": 15000,
+    "heartbeatIntervalMs": 10000
+  }
+}

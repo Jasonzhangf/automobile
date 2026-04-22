@@ -1,0 +1,4 @@
+interface:
+  display_name: "Flowy Dev"
+  short_description: "Android agent-hand dev/debug workflow"
+  default_prompt: "Use $flowy-dev-skill to drive Flowy Android perception, screenshot debugging, and Mac daemon integration work."
