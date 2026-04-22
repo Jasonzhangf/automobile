@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "flowy-block-result-v1",
+  "status": "error",
+  "startedAt": "2026-04-22T18:00:00+08:00",
+  "finishedAt": "2026-04-22T18:00:01+08:00",
+  "durationMs": 1000,
+  "output": null,
+  "artifacts": [],
+  "error": {
+    "code": "observer_unavailable",
+    "message": "accessibility snapshot missing",
+    "retryable": true
+  }
+}

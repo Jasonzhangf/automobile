@@ -56,6 +56,7 @@
 
 ```json
 {
+  "schemaVersion": "flowy-block-result-v1",
   "status": "ok",
   "startedAt": "2026-04-22T18:00:00+08:00",
   "finishedAt": "2026-04-22T18:00:01+08:00",
@@ -63,6 +64,25 @@
   "output": {},
   "artifacts": [],
   "error": null
+}
+```
+
+失败结果统一形状：
+
+```json
+{
+  "schemaVersion": "flowy-block-result-v1",
+  "status": "error",
+  "startedAt": "2026-04-22T18:00:00+08:00",
+  "finishedAt": "2026-04-22T18:00:01+08:00",
+  "durationMs": 1000,
+  "output": null,
+  "artifacts": [],
+  "error": {
+    "code": "target_not_found",
+    "message": "filter returned zero targets",
+    "retryable": false
+  }
 }
 ```
 
@@ -311,6 +331,8 @@ block 之间统一用 `ref` 串联：
 3. `evaluate-anchor.pre-open-search.example.json`
 4. `execute-operation.tap-search.example.json`
 5. `emit-event.workflow-succeeded.example.json`
+6. `*.success.result.json`
+7. `*.error.result.json`
 
 ---
 
@@ -327,6 +349,8 @@ block 之间统一用 `ref` 串联：
 第一版对当前 blocks 规格，至少要求：
 
 - 每个核心 block 都有 example
+- 每个核心 block 都有 success result example
+- 每个核心 block 都有 error result example
 - 每个 example 都有解析与字段校验单测
 - 每个核心 block 都在 coverage 清单里被覆盖
 

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "flowy-block-result-v1",
+  "status": "ok",
+  "startedAt": "2026-04-22T18:00:00+08:00",
+  "finishedAt": "2026-04-22T18:00:01+08:00",
+  "durationMs": 1000,
+  "output": {
+    "pageStateRef": "page-state:current",
+    "pageSignature": "e0644857b0d8"
+  },
+  "artifacts": [],
+  "error": null
+}

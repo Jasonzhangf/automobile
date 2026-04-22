@@ -13,7 +13,7 @@
 
 ## 当前下一步
 
-- 补齐 `blocks` 的单测与覆盖验证
+- 补齐 `blocks` 的 result/error 形状验证
 - 再进入单步 workflow engine 设计
 - 再把 flow templates 定清
 - 最后再接平台 runtime

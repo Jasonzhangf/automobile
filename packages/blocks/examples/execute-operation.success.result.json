@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "flowy-block-result-v1",
+  "status": "ok",
+  "startedAt": "2026-04-22T18:00:00+08:00",
+  "finishedAt": "2026-04-22T18:00:00.800000+08:00",
+  "durationMs": 800,
+  "output": {
+    "operationId": "tap_search_entry",
+    "status": "ok"
+  },
+  "artifacts": [],
+  "error": null
+}

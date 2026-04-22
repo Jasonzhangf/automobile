@@ -54,8 +54,9 @@ explore/android-daemon-lab/config/runtime-version.json
 1. 文件行数门禁
 2. 单元测试
 3. block 覆盖测试
-4. 相关回归测试
-5. 构建产物检查
+4. block result / error shape 验证
+5. 相关回归测试
+6. 构建产物检查
 
 ---
 
