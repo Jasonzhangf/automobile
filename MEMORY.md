@@ -18,3 +18,4 @@
 - 不能把 block 接口真源当成“block 已完成”；每个 block 先单测+覆盖，再进入 flow 编排测试。
 - block 的测试不只测 input example，还要测标准 success result / error result 形状。
 - 流程如果会重复出现，必须沉淀到文档 + skill + 可执行脚本，而不是只留在聊天记录里。
+- block 规格补完的最小标准是：标准 example + success/error result + valid boundary fixture + invalid fixture + validator 拒绝测试 + build 集成 gate。

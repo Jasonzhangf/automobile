@@ -333,6 +333,8 @@ block 之间统一用 `ref` 串联：
 5. `emit-event.workflow-succeeded.example.json`
 6. `*.success.result.json`
 7. `*.error.result.json`
+8. `fixtures/boundary/*.json`
+9. `fixtures/invalid/*.json`
 
 ---
 
@@ -351,7 +353,10 @@ block 之间统一用 `ref` 串联：
 - 每个核心 block 都有 example
 - 每个核心 block 都有 success result example
 - 每个核心 block 都有 error result example
+- 每个核心 block 都有 valid boundary fixture
+- 每个核心 block 都有 invalid fixture
 - 每个 example 都有解析与字段校验单测
+- invalid fixture 会被 validator 明确拒绝
 - 每个核心 block 都在 coverage 清单里被覆盖
 
 说明：

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "flowy-block-result-v1",
+  "status": "ok",
+  "startedAt": "2026-04-22T18:00:00+08:00",
+  "finishedAt": "2026-04-22T18:00:00+08:00",
+  "durationMs": 0,
+  "output": {
+    "accepted": true
+  },
+  "artifacts": [],
+  "error": {
+    "code": "unexpected_error",
+    "message": "should not exist on success",
+    "retryable": false
+  }
+}

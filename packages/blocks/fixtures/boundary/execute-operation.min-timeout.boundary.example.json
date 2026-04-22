@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "flowy-block-spec-v1",
+  "blockId": "execute_tap_feed_card_fast",
+  "kind": "execute-operation",
+  "input": {
+    "operationRef": "operation:tap_feed_card",
+    "targetRef": "target:feed_card_01"
+  },
+  "timeoutMs": 1
+}

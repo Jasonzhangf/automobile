@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "flowy-block-spec-v1",
+  "blockId": "emit_event_invalid_request_id",
+  "kind": "emit-event",
+  "input": {
+    "eventType": "workflow.step.succeeded",
+    "requestId": "20260422_0001",
+    "runId": "run_20260422_0001",
+    "data": {
+      "pageSignature": "e0644857b0d8"
+    }
+  },
+  "timeoutMs": 1000
+}

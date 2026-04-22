@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "flowy-block-spec-v1",
+  "blockId": "observe_page_with_screenshot",
+  "kind": "observe-page",
+  "input": {
+    "observerSpec": {
+      "requireAccessibility": true,
+      "requireScreenshot": true
+    }
+  },
+  "timeoutMs": 1
+}

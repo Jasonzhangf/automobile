@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "flowy-block-result-v1",
+  "status": "error",
+  "startedAt": "2026-04-22T18:00:00+08:00",
+  "finishedAt": "2026-04-22T18:00:00+08:00",
+  "durationMs": 0,
+  "output": {
+    "accepted": false
+  },
+  "artifacts": [],
+  "error": {
+    "code": "event_transport_failed",
+    "message": "control daemon rejected event",
+    "retryable": true
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "flowy-block-spec-v1",
+  "blockId": "filter_targets_invalid_filter_ref",
+  "kind": "filter-targets",
+  "input": {
+    "pageStateRef": "page-state:current",
+    "filterRef": "search_entry_filter"
+  },
+  "timeoutMs": 1000
+}

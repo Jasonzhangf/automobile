@@ -13,11 +13,9 @@
 
 ## 当前下一步
 
-- 把开发/验证/沉淀流程固定进 playbook + skill + build 入口
-- 补 `blocks` 的边界样本与边界测试
-- 再进入单步 workflow engine 设计
-- 再把 flow templates 定清
-- 最后再接平台 runtime
+- 当前 5 个 core blocks 已补到：标准样本 + success/error + boundary + invalid + validator + build gate
+- 下一步按用户要求切到：定义手机端 UI 界面
+- UI 界面之后，再回到 flow 编排与 runtime 落地
 
 ## 当前新增约束
 

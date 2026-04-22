@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "flowy-block-spec-v1",
+  "blockId": "execute_operation_invalid_target_ref",
+  "kind": "execute-operation",
+  "input": {
+    "operationRef": "operation:tap_search_entry",
+    "targetRef": "search_button"
+  },
+  "timeoutMs": 1000
+}

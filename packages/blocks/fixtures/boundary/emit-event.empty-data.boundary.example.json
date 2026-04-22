@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "flowy-block-spec-v1",
+  "blockId": "emit_workflow_step_started",
+  "kind": "emit-event",
+  "input": {
+    "eventType": "workflow.step.started",
+    "requestId": "req_20260422_0002",
+    "runId": "run_20260422_0002",
+    "data": {}
+  },
+  "timeoutMs": 1
+}

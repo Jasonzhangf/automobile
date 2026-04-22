@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "flowy-block-spec-v1",
+  "blockId": "filter_targets_clickable_cards_fast",
+  "kind": "filter-targets",
+  "input": {
+    "pageStateRef": "page-state:xhs/home_feed",
+    "filterRef": "filter:clickable_cards"
+  },
+  "timeoutMs": 1
+}

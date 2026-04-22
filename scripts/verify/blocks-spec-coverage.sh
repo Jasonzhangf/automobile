@@ -4,5 +4,5 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$repo_root"
 python3 -m unittest \
-  packages.blocks.tests.test_block_examples.BlockCoverageTest \
-  packages.blocks.tests.test_block_examples.BlockResultCoverageTest
+  packages.blocks.tests.test_block_coverage.BlockCoverageTest \
+  packages.blocks.tests.test_block_coverage.BlockResultCoverageTest
