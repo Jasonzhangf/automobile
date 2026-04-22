@@ -53,8 +53,9 @@ explore/android-daemon-lab/config/runtime-version.json
 
 1. 文件行数门禁
 2. 单元测试
-3. 相关回归测试
-4. 构建产物检查
+3. block 覆盖测试
+4. 相关回归测试
+5. 构建产物检查
 
 ---
 
@@ -79,6 +80,7 @@ scripts/dev/build-android-lab.sh
    -> bumpRuntimeVersion
    -> checkFileLines
 -> testDebugUnitTest
+-> blocks coverage checks
 -> assembleDebug
 -> apk exists smoke
 ```
@@ -138,7 +140,8 @@ scripts/dev/build-android-lab.sh
 1. `runtime-version.json` 已自动 bump
 2. `check-file-lines` 通过
 3. `testDebugUnitTest` 通过
-4. `app-debug.apk` 已生成
+4. block 覆盖验证通过
+5. `app-debug.apk` 已生成
 
 任意一项失败：
 
@@ -168,5 +171,6 @@ version truth
 
 1. 每次 build 自动 bump 版本。
 2. 每次 build 自动带测试，不接受 compile-only。
-3. 构建入口与验证入口必须走 `scripts/dev` 与 `scripts/verify`。
-4. 先把 Android lab 的 build pipeline 固化，再推广到正式 Android agent。
+3. block 必须先做单测 + 覆盖测试，再做 flow 编排测试。
+4. 构建入口与验证入口必须走 `scripts/dev` 与 `scripts/verify`。
+5. 先把 Android lab 的 build pipeline 固化，再推广到正式 Android agent。

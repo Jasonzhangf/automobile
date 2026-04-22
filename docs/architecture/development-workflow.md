@@ -111,8 +111,8 @@ review scope
 推荐：
 
 - foundation：单测
-- blocks：模块集成测试
-- flows：fixtures + 真实 smoke
+- blocks：**单测 -> 覆盖测试 -> 编排前验证**
+- flows：在 blocks 测通后，再做编排测试 + 真实 smoke
 
 ---
 
@@ -169,6 +169,30 @@ file-line gate
 目标：
 
 - 验证模块内部协作
+
+---
+
+### 3.5 block 专属测试顺序
+
+每个 block 必须先完成：
+
+1. **标准单元测试**
+   - 校验输入
+   - 校验输出
+   - 校验错误结构
+
+2. **覆盖测试**
+   - 覆盖该 block 的标准样本
+   - 覆盖该 block 的边界输入
+   - 覆盖该 block 的失败场景
+
+3. **编排前验证**
+   - 确认该 block 可以被 flow 安全引用
+
+没有完成这三步：
+
+- 不进入 flow 编排测试
+- 不宣称该 block 已完成
 
 ---
 

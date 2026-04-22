@@ -13,7 +13,7 @@
 
 ## 当前下一步
 
-- 固化 `blocks` 最小接口真源
+- 补齐 `blocks` 的单测与覆盖验证
 - 再进入单步 workflow engine 设计
 - 再把 flow templates 定清
 - 最后再接平台 runtime

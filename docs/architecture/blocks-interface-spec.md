@@ -314,9 +314,34 @@ block 之间统一用 `ref` 串联：
 
 ---
 
-## 八、当前接受的设计结论
+## 八、blocks 测试要求
+
+每个 block 都必须先过自己的测试，再进入 flow。
+
+固定顺序：
+
+1. `block unit tests`
+2. `block coverage checks`
+3. `flow orchestration tests`
+
+第一版对当前 blocks 规格，至少要求：
+
+- 每个核心 block 都有 example
+- 每个 example 都有解析与字段校验单测
+- 每个核心 block 都在 coverage 清单里被覆盖
+
+说明：
+
+- 当前这里还是 interface/spec 层，不是平台 runtime 实现层
+- 所以当前覆盖测试是 **spec coverage / example coverage**
+- 等 block 真正落到运行时代码后，再补代码级覆盖
+
+---
+
+## 九、当前接受的设计结论
 
 1. block 是最小能力闭环，不是长流程。
 2. block 统一输入输出形状，方便 CLI / WS / flow / runtime 共用。
 3. block 之间通过 ref 串联。
 4. `observe / filter / anchor / operation / event` 是第一批固定 block。
+5. 每个 block 必须先单测 + 覆盖测试，再做 flow 编排测试。

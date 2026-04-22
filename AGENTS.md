@@ -23,6 +23,7 @@
 - 手机端必须支持 **内建升级**；runtime update 与 APK update 都通过 daemon 通信链路和同一套配置真源协同完成。
 - 全局代码组织固定为：**共用函数库（foundation）+ 能力块（blocks）+ 编排（flows）**，且每个功能实现必须保持**唯一真源**。
 - 每次 build 必须自动 **bump 版本 + 跑测试**；不接受 compile-only build。
+- blocks 层必须先完成 **标准单测 + 覆盖测试**，之后才能进入 flow 编排测试。
 - 当前开发拓扑：**Mac 本地 daemon + 手机端 Agent**；手机端的识别结果与截图需要方便地回收到 Mac 调试。
 - 工作区采用 **双 daemon + shared packages** 的 monorepo 结构。
 - 当前 Android 侧最小实验对象是 **long-running daemon runtime**，不是正式 APP 脚手架。

@@ -15,3 +15,4 @@
 - 全局实现遵守：`foundation -> blocks -> flows`，每个功能必须只有一个权威实现。
 - 每次 build 必须自动 bump 版本，并在 build 流程内自动跑测试；compile-only 不算有效构建。
 - blocks 是最小能力闭环，统一通过 ref 串联，不直接承载长流程状态机。
+- 不能把 block 接口真源当成“block 已完成”；每个 block 先单测+覆盖，再进入 flow 编排测试。
