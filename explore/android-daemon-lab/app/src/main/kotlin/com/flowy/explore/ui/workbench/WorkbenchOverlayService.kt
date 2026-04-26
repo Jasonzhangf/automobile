@@ -41,6 +41,7 @@ class WorkbenchOverlayService : Service() {
   private var currentSection = Section.AGENT_CONTROL
   private var renderedSection: Section? = null
   private var renderedSectionKey: String? = null
+  private var appsSubPage: AppsSubPage = AppsSubPage.LIST
 
   private val renderLoop = object : Runnable {
     override fun run() {
@@ -130,6 +131,7 @@ class WorkbenchOverlayService : Service() {
     }
     views.appsButton.setOnClickListener {
       currentSection = Section.APPS
+      appsSubPage = AppsSubPage.LIST
       renderSection(stateStore.snapshot(), force = true)
     }
     views.upgradeButton.setOnClickListener {
@@ -229,11 +231,19 @@ class WorkbenchOverlayService : Service() {
           startActivity(Intent(this, DevPanelActivity::class.java).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
         },
       )
-      Section.APPS -> viewFactory.buildAppsSection(xhsConfigStore) { config: XhsSearchConfig ->
-        if (config.keyword.isBlank()) {
-          toast("请输入关键词")
-        } else {
-          toast("搜索: ${config.keyword} (flow 骨架待接入)")
+      Section.APPS -> when (appsSubPage) {
+        AppsSubPage.LIST -> viewFactory.buildAppsListSection(
+          onXhsSearch = {
+            appsSubPage = AppsSubPage.XHS_SEARCH
+            renderSection(stateStore.snapshot(), force = true)
+          },
+        )
+        AppsSubPage.XHS_SEARCH -> viewFactory.buildXhsSearchSection(xhsConfigStore) { config: XhsSearchConfig ->
+          if (config.keyword.isBlank()) {
+            toast("请输入关键词")
+          } else {
+            toast("搜索: ${config.keyword} (flow 骨架待接入)")
+          }
         }
       }
     }
@@ -383,6 +393,11 @@ class WorkbenchOverlayService : Service() {
     CAPTURE_MODE,
     SYSTEM_SETTINGS,
     APPS,
+  }
+
+  enum class AppsSubPage {
+    LIST,
+    XHS_SEARCH,
   }
 }
 

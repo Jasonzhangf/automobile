@@ -138,7 +138,15 @@ class WorkbenchViewFactory(private val context: Context) {
     ))
   }
 
-  fun buildAppsSection(configStore: XhsSearchConfigStore, onStart: (XhsSearchConfig) -> Unit): View {
+  fun buildAppsListSection(onXhsSearch: () -> Unit): View {
+    val xhsButton = actionButton("小红书搜索") { onXhsSearch() }
+    return section("应用", listOf(
+      bodyText("选择要运行的自动化流程"),
+      xhsButton,
+    ))
+  }
+
+  fun buildXhsSearchSection(configStore: XhsSearchConfigStore, onStart: (XhsSearchConfig) -> Unit): View {
     val config = configStore.load()
     val formFactory = XhsSearchFormFactory(context)
     val formView = formFactory.build(
@@ -146,7 +154,7 @@ class WorkbenchViewFactory(private val context: Context) {
       onConfigChange = { configStore.save(it) },
       onStart = onStart,
     )
-    return section("应用 · 小红书搜索", listOf(formView))
+    return section("小红书搜索", listOf(formView))
   }
 
   private fun section(title: String, views: List<View>): View {
