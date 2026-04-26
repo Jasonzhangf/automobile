@@ -12,7 +12,7 @@
   },
   "operationPlan": {
     "kind": "input-text",
-    "backend": "accessibility",
+    "backend": "root",
     "payload": {
       "text": "deepseek v4"
     }

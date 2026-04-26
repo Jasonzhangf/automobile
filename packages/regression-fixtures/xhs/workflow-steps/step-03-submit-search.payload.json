@@ -12,7 +12,7 @@
   },
   "operationPlan": {
     "kind": "press-key",
-    "backend": "accessibility",
+    "backend": "root",
     "payload": {
       "key": "search"
     }

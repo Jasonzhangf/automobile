@@ -16,7 +16,7 @@ import (
 
 func main() {
 	artifactRoot := envOrDefault("FLOWY_ARTIFACT_ROOT", filepath.Clean("../../artifacts"))
-	bindAddr := envOrDefault("FLOWY_MAC_DAEMON_ADDR", ":8787")
+	bindAddr := envOrDefault("FLOWY_MAC_DAEMON_ADDR", "0.0.0.0:8787")
 	versionFilePath := envOrDefault("FLOWY_ANDROID_LAB_VERSION_FILE", filepath.Clean("../../explore/android-daemon-lab/config/runtime-version.json"))
 	apkPath := envOrDefault("FLOWY_ANDROID_LAB_APK_PATH", filepath.Clean("../../explore/android-daemon-lab/app/build/outputs/apk/debug/app-debug.apk"))
 	app := state.New(artifactRoot)

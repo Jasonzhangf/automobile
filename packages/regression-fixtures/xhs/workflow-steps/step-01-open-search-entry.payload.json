@@ -12,7 +12,7 @@
   },
   "operationPlan": {
     "kind": "tap",
-    "backend": "accessibility"
+    "backend": "root"
   },
   "anchorPolicy": {
     "preAnchor": {

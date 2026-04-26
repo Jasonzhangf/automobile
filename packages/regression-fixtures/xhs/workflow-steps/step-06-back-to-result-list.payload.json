@@ -12,7 +12,7 @@
   },
   "operationPlan": {
     "kind": "back",
-    "backend": "accessibility"
+    "backend": "root"
   },
   "anchorPolicy": {
     "preAnchor": {
