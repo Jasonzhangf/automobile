@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "flowy-page-model-workflow-step-v1",
+  "workflowStepId": "xhs_submit_search",
+  "name": "Submit XHS Search",
+  "observerSpec": {
+    "requireAccessibility": true,
+    "requireScreenshot": false
+  },
+  "targetFilterRef": "filter:xhs_search_input",
+  "operationRef": "operation:xhs_submit_search",
+  "anchorRef": "anchor:xhs_submit_search",
+  "retryPolicy": {
+    "maxAttempts": 1
+  }
+}

@@ -125,6 +125,12 @@ enter app
 - 这套 operation 不带业务语义
 - “点搜索”、“点评论”、“点回复” 都是：
   - `tap(targetRef)`
+- 但 operation 的执行还必须带 `timingPolicy`：
+  - 非固定节拍
+  - 随机 wait/jitter
+  - 不同操作类型可配置不同时间窗
+- 第三方业务 APP 的 `enter app / open detail / open result` 也必须通过同一套**用户态原语**推进，不能把 `intent / deep-link / component 直开` 记入业务 workflow skeleton。
+- `intent / deep-link / component` 若存在，只能归入 **debug/bootstrap helper**，不能归入跨 APP 业务操作集合。
 
 ---
 
@@ -252,6 +258,35 @@ APP profile 负责把页面上的实际元素映射到统一字段：
 search_result --tap(result_card)--> post_detail
 post_detail --tap(comment_entry)--> comment_expanded
 post_detail --back--> search_result
+```
+
+补充要求：
+
+- 页面转移不能只定义 `operation -> expectedPage`，还要定义 **post-anchor**。
+- `post-anchor` 不能默认“一次 observe 就稳定”，需要允许：
+  - settle wait
+  - repeated observe
+  - timeout / fallback
+- 当 screenshot 与 Accessibility tree 短时间不一致时，workflow 需要进入 **settle-policy**，而不是直接把第一次 observe 当结论。
+- 像 `展开回复` 这类入口文案，可能对应：
+  - 内联展开
+  - 回复输入态
+  - 独立 sheet
+  所以 profile 里要允许 **一个候选入口 -> 多个 post-anchor 分支**。
+
+建议 page transition 至少定义：
+
+```json
+{
+  "from": "post_detail",
+  "operation": "tap(reply_entry)",
+  "postAnchors": ["comment_expanded", "reply_composer", "reply_sheet"],
+  "settlePolicy": {
+    "waitMs": 1000,
+    "maxRetry": 3,
+    "fallback": "back_to_post_detail"
+  }
+}
 ```
 
 ---

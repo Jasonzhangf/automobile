@@ -9,7 +9,10 @@ class WsSessionFlow(
   private val fetchLogsFlow: FetchLogsFlow,
   private val screenshotCaptureFlow: ScreenshotCaptureFlow,
   private val accessibilityDumpFlow: AccessibilityDumpFlow,
+  private val rootScreenshotCaptureFlow: RootScreenshotCaptureFlow,
+  private val rootWindowStateFlow: RootWindowStateFlow,
   private val operationRunFlow: OperationRunFlow,
+  private val workflowStepFlow: WorkflowStepFlow,
 ) {
   fun onMessage(text: String) {
     val json = JSONObject(text)
@@ -23,7 +26,11 @@ class WsSessionFlow(
       "fetch-logs" -> fetchLogsFlow.run(requestId, runId, command, json.optJSONObject("payload")?.optInt("tail", 200) ?: 200)
       "capture-screenshot" -> screenshotCaptureFlow.run(requestId, runId, command)
       "dump-accessibility-tree" -> accessibilityDumpFlow.run(requestId, runId, command)
-      "tap", "scroll", "input-text", "back", "press-key" -> operationRunFlow.run(requestId, runId, command, payload)
+      "capture-screenshot-root" -> rootScreenshotCaptureFlow.run(requestId, runId, command)
+      "dump-window-state-root" -> rootWindowStateFlow.run(requestId, runId, command)
+      "run-workflow-step" -> workflowStepFlow.run(requestId, runId, command, payload)
+      "tap", "scroll", "input-text", "back", "press-key", "open-deep-link", "run-root-command" ->
+        operationRunFlow.run(requestId, runId, command, payload)
       else -> appendLogBlock.error("command_failed", "unsupported command $command", requestId, runId, command)
     }
   }

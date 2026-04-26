@@ -1,0 +1,37 @@
+{
+  "workflowId": "xhs_back_to_result_list",
+  "observerSpec": {
+    "requireAccessibility": true,
+    "requireScreenshot": false
+  },
+  "targetFilter": {
+    "anchorId": "detail_back",
+    "selector": {
+      "clickable": true
+    }
+  },
+  "operationPlan": {
+    "kind": "back",
+    "backend": "accessibility"
+  },
+  "anchorPolicy": {
+    "preAnchor": {
+      "packageName": "com.xingin.xhs"
+    },
+    "postAnchor": {
+      "packageName": "com.xingin.xhs",
+      "mustContainTexts": [
+        "综合",
+        "最新"
+      ]
+    }
+  },
+  "timingPolicy": {
+    "minDelayMs": 600,
+    "maxDelayMs": 1200
+  },
+  "postObservePolicy": {
+    "maxAttempts": 8,
+    "pollIntervalMs": 400
+  }
+}

@@ -116,9 +116,15 @@ Screenshot evidence rule:
 
 - Once Flowy screenshot capture is available in this repo, use **Flowy-originated screenshots** as the default evidence path for debugging and business-flow exploration.
 - Do **not** use `adb screencap` as routine evidence for page-state / workflow verification; reserve adb only for installation/bootstrap-class device plumbing when no Flowy screenshot evidence is involved.
+- For **third-party business apps**（例如小红书、微博）, exploration and validation must use only **user-like interaction paths**:
+  - allowed: `tap`, `scroll`, `input-text`, `back`, `capture-screenshot`, `dump-accessibility-tree`
+  - disallowed as business entry/progression: `intent`, `deep-link`, `component` direct-open, and any JS/Auto.js shortcut
+  - if a risk-control / security-limit page appears, treat it as valid evidence, record it, and revert the workflow to pure user-path interaction instead of trying another direct-open variant
 - On current Oplus / Android 16 real devices, do **not** treat `am force-stop com.flowy.explore` as a harmless restart during accessibility verification; it can clear Flowy's accessibility enabled state and invalidate capability conclusions.
 - When Accessibility availability changes, verify both the **real capability** and the **control-plane hello/capabilities projection**; stale `/exp01/clients` data is a separate bug class from capability failure itself.
 - On Android 14+/Oplus devices, MediaProjection session setup is order-sensitive: keep it as **grant -> foreground service promote (`mediaProjection`) -> `registerCallback()` -> `createVirtualDisplay()` -> reuse single session**. If the panel only says `not-ready`, inspect logcat first; do not assume permission was denied.
+- For app-internal root commands that stream large binary stdout（例如 `screencap -p | cat`）, do not `waitFor()` process exit before consuming stdout; read the stream concurrently first, otherwise the pipe can fill, deadlock, and get misdiagnosed as a missing root binary.
+- For workflow post-anchor verification, do not treat one immediate Accessibility observe as ground truth after a page jump; poll boundedly for a fresh snapshot before concluding `POST_ANCHOR_NOT_MATCHED`.
 
 Upgrade verification reminder:
 

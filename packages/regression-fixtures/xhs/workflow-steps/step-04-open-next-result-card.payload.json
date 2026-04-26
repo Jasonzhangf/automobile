@@ -1,0 +1,46 @@
+{
+  "workflowId": "xhs_open_next_result_card",
+  "observerSpec": {
+    "requireAccessibility": true,
+    "requireScreenshot": true
+  },
+  "targetFilter": {
+    "anchorId": "result_card",
+    "selector": {
+      "clickable": true
+    }
+  },
+  "operationPlan": {
+    "kind": "tap",
+    "backend": "accessibility"
+  },
+  "anchorPolicy": {
+    "preAnchor": {
+      "packageName": "com.xingin.xhs",
+      "mustContainTexts": [
+        "综合",
+        "最新"
+      ]
+    },
+    "postAnchor": {
+      "packageName": "com.xingin.xhs",
+      "mustContainTexts": [
+        "赞"
+      ]
+    }
+  },
+  "timingPolicy": {
+    "minDelayMs": 900,
+    "maxDelayMs": 1700
+  },
+  "postObservePolicy": {
+    "maxAttempts": 10,
+    "pollIntervalMs": 450
+  },
+  "riskFlags": {
+    "riskSensitive": true,
+    "notes": [
+      "当前设备/账号上，Accessibility 开启态下这一步有风控风险"
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "workflowId": "xhs_input_keyword",
+  "observerSpec": {
+    "requireAccessibility": true,
+    "requireScreenshot": false
+  },
+  "targetFilter": {
+    "anchorId": "search_input",
+    "selector": {
+      "editable": true
+    }
+  },
+  "operationPlan": {
+    "kind": "input-text",
+    "backend": "accessibility",
+    "payload": {
+      "text": "deepseek v4"
+    }
+  },
+  "anchorPolicy": {
+    "preAnchor": {
+      "packageName": "com.xingin.xhs"
+    },
+    "postAnchor": {
+      "packageName": "com.xingin.xhs",
+      "mustContainTexts": [
+        "deepseek v4"
+      ]
+    }
+  },
+  "timingPolicy": {
+    "minDelayMs": 800,
+    "maxDelayMs": 1500
+  },
+  "postObservePolicy": {
+    "maxAttempts": 6,
+    "pollIntervalMs": 300
+  }
+}

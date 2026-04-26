@@ -1,0 +1,40 @@
+{
+  "workflowId": "xhs_open_search_entry",
+  "observerSpec": {
+    "requireAccessibility": true,
+    "requireScreenshot": false
+  },
+  "targetFilter": {
+    "anchorId": "search_entry",
+    "selector": {
+      "clickable": true
+    }
+  },
+  "operationPlan": {
+    "kind": "tap",
+    "backend": "accessibility"
+  },
+  "anchorPolicy": {
+    "preAnchor": {
+      "packageName": "com.xingin.xhs",
+      "mustContainTexts": [
+        "关注",
+        "发现"
+      ]
+    },
+    "postAnchor": {
+      "packageName": "com.xingin.xhs",
+      "mustContainTexts": [
+        "猜你想搜"
+      ]
+    }
+  },
+  "timingPolicy": {
+    "minDelayMs": 700,
+    "maxDelayMs": 1400
+  },
+  "postObservePolicy": {
+    "maxAttempts": 8,
+    "pollIntervalMs": 400
+  }
+}

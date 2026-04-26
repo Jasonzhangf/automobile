@@ -215,9 +215,67 @@
   - `./scripts/verify/check-file-lines.sh`
   - `cd services/mac-daemon && go test ./...`
   - `cd services/mac-daemon && go build -o ./.tmp/flowy-mac-daemon ./src`
-  - 本地 smoke：
+- 本地 smoke：
     - `POST /exp01/artifacts` 成功
     - `page-context.json` 已写入 `/tmp/flowy-phase-b-smoke/2026-04-22/2026-04-22T10-09-00_capture-screenshot_smoke/`
+
+## 2026-04-26
+
+### root observer 并行实现补闭环
+- 背景：
+  - `run-root-command` 成功。
+  - `dump-window-state-root` 成功。
+  - 但前一版 `capture-screenshot-root` 真机失败，日志表现成 `ROOT_BINARY_NOT_FOUND`。
+
+### 本次根因判断
+- 不是简单的“root binary 不存在”。
+- 真根因更像是 `RootShellRunner` 先 `waitFor()` 再读 stdout：
+  - `screencap -p ... && cat ...` 会产生较大的 PNG 二进制输出；
+  - 进程可能在 stdout 管道写满后阻塞，导致主线程等退出超时；
+  - 原实现又把 candidate 启动/执行异常统一吞掉，最终错误被折叠成假的 `ROOT_BINARY_NOT_FOUND`。
+
+### 本次修改
+- `RootShellRunner` 改成：
+  1. 并发读取 stdout；
+  2. 只有真正的 “binary missing / error=2” 才继续尝试下一个 `su` candidate；
+  3. 非缺失类失败直接保留真实错误抛出，不再静默折叠成 `ROOT_BINARY_NOT_FOUND`。
+- 新增单测：
+  - `RootShellRunnerTest.run_skipsMissingBinaryCandidate`
+  - `RootShellRunnerTest.run_preservesNonMissingFailure`
+  - `RootShellRunnerTest.run_collectsLargeStdoutBeforeWaitCompletes`
+
+### 本次验证证据
+- 单测：
+  - `gradle :app:testDebugUnitTest --tests 'com.flowy.explore.foundation.RootShellRunnerTest' --tests 'com.flowy.explore.blocks.RootScreenshotBlockTest'`
+  - 通过。
+- 全量 build gate：
+  - `./scripts/dev/build-android-lab.sh`
+  - 成功，版本从 `0.1.0077` bump 到 `0.1.0078`。
+- 真机安装：
+  - `./scripts/dev/phase-a-install-android-lab.sh`
+  - 成功。
+- 真机 hello：
+  - `/exp01/clients` 显示 `runtimeVersion: 0.1.0078`
+  - capabilities 含 `capture-screenshot-root`
+- 真机命令闭环：
+  - `./scripts/dev/phase-a-send-command.sh capture-screenshot-root root-screenshot-smoke '{}'`
+  - 返回 `status=ok`
+  - artifact：
+    - `screenshot.png`
+    - `screenshot-meta.json`
+    - `page-context.json`
+  - 落盘目录：
+    - `artifacts/2026-04-26/2026-04-26T14-25-07_capture-screenshot-root_root-screenshot-smoke/`
+  - `file screenshot.png`：
+    - `PNG image data, 1216 x 2640, 8-bit/color RGBA`
+
+### 当前结论
+- `capture-screenshot-root` 已完成真机闭环。
+- root 观察链路当前已具备：
+  - `run-root-command`
+  - `dump-window-state-root`
+  - `capture-screenshot-root`
+- 下一步可以把 root observer 进一步抽到正式骨架模块，和 accessibility observer 做平行后端接入。
 
 ### 当前下一步
 1. Android 侧补 `MediaProjection` 授权入口与 session holder
@@ -1357,3 +1415,347 @@
   - “打开 Flowy 自动起 daemon” 已闭环
   - “控制面能力集与 Accessibility 实际能力保持同步” 已闭环
   - 后续 accessibility 验证流程里不能再把 `force-stop` 当成普通冷启动手段
+
+### 小红书业务探索新增高优先级结论（2026-04-26）
+- 这次在小红书搜索结果页后，曾使用 `component / intent` 直开方式进入业务 APP，随后命中风控页：
+  - 页面文案：`安全限制`
+  - 提示：`设备异常，请尝试关闭/卸载风险插件或重启试试`
+- 已收敛结论：
+  1. 第三方业务 APP 的探索与后续自动化，**只能**使用纯模拟用户操作路径：
+     - 点击
+     - 滚动
+     - 输入
+     - 返回
+     - Flowy 截屏
+     - Accessibility 观察
+  2. **禁止**把 `intent / deep-link / component 直开` 用作第三方业务 APP 入口。
+  3. **禁止**把 `JS / Auto.js` 作为本项目的业务探索路线。
+  4. `open-deep-link` 仅保留给：
+     - Flowy 自身调试面板
+     - 系统授权页 / 设置页
+     - 非业务态调试引导
+- 后续小红书流程必须从真实用户首页入口重走，且每一步都做预锚点 / 后锚点确认。
+
+### 小红书纯用户路径重跑证据（2026-04-26）
+- 已改回纯用户路径：
+  1. `HOME`
+  2. 桌面页确认 `文件夹：社交`
+  3. 点击社交文件夹预览区左上角小红书图标
+  4. 成功进入 `com.xingin.xhs`
+- 关键结论：
+  - 纯用户路径进入小红书 **未再次触发风控**
+  - 小红书会恢复到上次业务页面，而不是固定回首页
+  - 因此第三方 APP 的 `enter app` 需要接受“恢复上次页面”的真实用户行为
+
+### 小红书当前已验证页面与能力
+
+#### 1. 搜索结果页 `xhs_search_result`
+- 查询词：`deepseek v4`
+- 页面签名：
+  - 输入框文本：`deepseek v4`
+  - 顶部分类：`全部 / 用户 / 商品 / 地点 / 问一问`
+  - 子筛选：`综合 / 最新 / 今天 ...`
+- 已验证可提取：
+  - 搜索词
+  - 分类 tab
+  - 结果卡片 bounds
+  - 局部正文文本
+- 已验证可操作：
+  - 点击结果卡片进入详情
+  - 返回搜索输入页
+
+#### 2. 帖子详情页 `xhs_post_detail`
+- 纯用户路径下，从搜索结果页点击第一页左上卡片，成功进入详情页
+- 当前样本：
+  - 作者：`平凡的研究员`
+  - 标题：`把Claude code模型换成了DeepSeek V4`
+  - 正文首段可直接提取
+  - 互动入口：
+    - `点赞 433`
+    - `收藏 385`
+    - `评论 273`
+  - 评论区：
+    - `共 273 条评论`
+    - 已能直接提取评论用户名、正文、回复入口、点赞数
+- 当前判断：
+  - 对小红书详情页，Accessibility 已足够覆盖：
+    - 作者
+    - 标题 / 正文
+    - 点赞 / 收藏 / 评论入口
+    - 评论列表中的部分结构
+  - 截图更多是证据与视觉补洞，不是第一真源
+
+### 小红书当前工作流判断
+- 当前可落地的最小业务闭环：
+  1. 从桌面纯用户路径进入小红书
+  2. 若恢复到历史页面，则先 `back` 到搜索结果页或首页
+  3. 搜索页输入关键词
+  4. 结果页点卡片进详情
+  5. 详情页提取正文 + 互动入口 + 评论样本
+- 后续待验证：
+  1. 评论长列表持续滚动时的稳定提取策略
+  2. 评论“展开回复”后的层级结构
+  3. 图片/视频多媒体资源是否需要截图+视觉补洞
+
+
+### 小红书评论/回复链路补充验证（2026-04-26）
+- 这轮在帖子详情页评论区，围绕 `展开 21 条回复` 做了链路补充。
+
+#### 1. `展开 21 条回复` 当前真实行为
+- 已有证据表明：点击 `展开 21 条回复` 后，并不是稳定地进入“内联展开后的回复列表”可观察态。
+- 当前这次实际进入的是 **回复输入态 / reply composer**：
+  - 截图：
+    - `artifacts/2026-04-26/2026-04-26T12-57-46_capture-screenshot_xhs-current-reply-composer-check/screenshot.png`
+  - Accessibility：
+    - `artifacts/2026-04-26/2026-04-26T12-57-46_dump-accessibility-tree_xhs-current-reply-composer-check/accessibility-raw.json`
+- 可见元素：
+  - `回复 @tingting：`
+  - `发送`
+  - 表情栏
+  - 输入法已弹出
+- 当前判断：
+  - 在小红书评论区里，`展开 N 条回复` 至少在当前样本上，**可能会直接触发回复输入交互态**，而不是单纯的评论树展开。
+  - 因此对“回复入口”不能只按文案命名，需要区分：
+    1. `expand-replies`
+    2. `reply-composer-entry`
+    3. `reply-list-sheet`
+  - 后续 workflow 里应把这类入口当成 **歧义操作点**，必须做后锚点确认。
+
+#### 2. `reply composer -> detail comments` 返回链路
+- 执行：`back`
+- 截图证据：
+  - `artifacts/2026-04-26/2026-04-26T12-58-08_capture-screenshot_xhs-after-reply-composer-back/screenshot.png`
+- 结果：
+  - 截图已回到评论列表态
+  - 屏幕可见：
+    - `共 273 条评论`
+    - `展开 21 条回复`
+    - `tingting`
+    - 底部输入框 `说点什么...`
+- 当前结论：
+  - `reply composer` 通过一次 `back` 可以回到帖子详情评论态。
+
+#### 3. 关键观察：页面切换后 Accessibility dump 存在短暂滞后
+- 在 `back` 刚执行完后，立即做的 dump 仍然返回了旧的 `reply composer` 树：
+  - 旧树证据：
+    - `artifacts/2026-04-26/2026-04-26T12-58-08_dump-accessibility-tree_xhs-after-reply-composer-back/accessibility-raw.json`
+  - 旧树文本仍是：
+    - `回复 @tingting：`
+    - `发送`
+- 但同一轮的 screenshot 已经显示详情评论页：
+  - `artifacts/2026-04-26/2026-04-26T12-58-08_capture-screenshot_xhs-after-reply-composer-back/screenshot.png`
+- 延迟 1 秒后再次 dump，树刷新为详情评论页：
+  - `artifacts/2026-04-26/2026-04-26T12-58-39_dump-accessibility-tree_xhs-after-back-delay-1s/accessibility-raw.json`
+- 新树可见：
+  - `内容可能使用AI技术生成`
+  - `把Claude code模型换成了DeepSeek V4`
+  - `共 273 条评论`
+  - `展开 21 条回复`
+  - `tingting`
+  - `说点什么...`
+- 当前判断：
+  - 页面切换后，`operation -> observe` 不能假设第一次 observe 就是稳定态。
+  - 对评论/回复这类复杂切换，需要加入 **settle wait / re-observe** 机制：
+    1. 操作后先看 post-anchor 是否命中
+    2. 若 screenshot 与 accessibility 树不一致，则继续短等待并重试 observe
+    3. 直到进入稳定锚点或超时失败
+- 这个现象非常适合作为后续正式基座里 `post-anchor` 的一个实现要求，而不是临时人工经验。
+
+#### 4. `detail -> search results` 返回链路已补证据
+- 执行：从详情页再 `back` 一次
+- 截图：
+  - `artifacts/2026-04-26/2026-04-26T12-59-26_capture-screenshot_xhs-search-results-after-detail-back/screenshot.png`
+- Accessibility：
+  - `artifacts/2026-04-26/2026-04-26T12-59-26_dump-accessibility-tree_xhs-search-results-after-detail-back/accessibility-raw.json`
+- 已确认页面锚点：
+  - 搜索框：`deepseek v4`
+  - 顶部分类：`全部 / 用户 / 商品 / 地点 / 问一问`
+  - 子筛选：`综合 / 最新 / 今天 / 写文 / 拟人化 / 测评`
+  - 结果卡片文本仍可直接提取
+- 当前结论：
+  - `xhs_post_detail -> back -> xhs_search_result` 已有稳定真机证据
+  - 现在小红书最小业务页面链路已完整：
+    1. 桌面纯用户路径进入小红书
+    2. 搜索结果页
+    3. 帖子详情页
+    4. 评论区 / 回复输入态
+    5. `back` 回详情
+    6. `back` 回搜索结果
+
+#### 5. 对正式 workflow 的直接抽象输入
+- 这轮证据说明，小红书这类内容 App 的 flow 不能只建“页面名 + 操作名”。
+- 更合理的抽象应至少包含：
+  1. `page-anchor`：当前页稳定识别条件
+  2. `target-filter`：当前页关注哪些候选目标
+  3. `operation`：点击 / 滚动 / 输入 / 返回
+  4. `post-anchor`：操作后期待进入的状态
+  5. `settle-policy`：观察延迟、重试次数、冲突时以什么证据优先
+  6. `fallback`：若未命中目标锚点，如何回退到上一个稳定页
+- 对评论区尤其要允许“一个文案对应多个真实交互态”的分支设计。
+
+
+### Flow 执行节律新增硬要求（2026-04-26）
+- 用户新增要求：真正进入业务 flow 编程后，用户态 operation 不能固定间隔执行，必须带随机时间间隔。
+- 当前收敛：
+  1. 这是 runtime / flow 层策略，不是临时脚本里的零散 `sleep`。
+  2. 后续每个 flow step 最好都带 `timingPolicy`，至少定义：
+     - `minDelayMs`
+     - `maxDelayMs`
+     - `jitterMode`
+  3. 不同操作类型（tap / scroll / back / input）可以给不同时间窗。
+
+
+### 小红书风控根因判断纠偏（2026-04-26）
+- 用户当轮手动复测反馈：
+  - 正常点帖子没问题
+  - **搜索以后再点帖子会触发风控**
+- 这条用户实测证据说明：
+  1. 不能把本轮风控直接归因到 `Flowy tap = dispatchGesture`。
+  2. 更可能的风险触发条件是：**搜索结果页 -> 进入详情页** 这条链路本身，或当前搜索态/会话态/设备态与该链路组合。
+  3. 之前“你手点没事、Flowy 点才有问题”的判断证据不足，现已撤回，不再作为当前结论。
+- 当前更稳妥的工作假设：
+  - 风控根因优先排查：
+    1. `search_result -> post_detail` 页面跳转链路
+    2. 当前账号/设备的搜索态风险分数
+    3. 其次才是具体点击实现差异
+- 后续实验要求：
+  - 先区分“首页/推荐流点详情”与“搜索结果点详情”两条链
+  - 不再把 `dispatchGesture` 单独当成当前唯一嫌疑
+
+
+### 小红书风控真因已缩到 Accessibility 开关（2026-04-26）
+- 用户最新手测结论：
+  - 开启 Flowy Accessibility Service：搜索后点详情 -> 风控
+  - 关闭 Flowy Accessibility Service：同链路恢复正常
+- 因此当前最稳结论：
+  1. 这次风控的关键因子不是 adb 本身，而是 **Accessibility service 开启态**。
+  2. 对小红书而言，至少在当前设备/账号组合下，`Accessibility on + search_result -> post_detail` 不可作为业务主链。
+  3. 之前把根因放在“dispatchGesture 点击方式”上证据不足；当前更强结论是：**service 开启本身就足以触发风控敏感态**。
+- 对项目设计的直接影响：
+  - 小红书业务探索要改成：
+    1. 手动主导进入目标页
+    2. Flowy 仅做非 Accessibility 依赖的观察/证据路径（若保留）
+    3. 或暂停 XHS，先在不受该约束的目标上完成识别框架
+  - 不能再默认“observe 和 operate 都依赖 Accessibility”可迁移到所有第三方内容 APP。
+
+
+### Root command 最小接入（2026-04-26）
+
+- 平行 backend 本轮实现：
+  - operation: `tap / scroll / input-text / back / press-key`
+  - backend: `accessibility | root`
+  - 默认：`accessibility`
+  - 显式 root：payload 加 `{"backend":"root"}`
+- 本轮 build / gate：
+  - `./scripts/dev/build-android-lab.sh` 成功
+  - 版本从 `0.1.0072` -> `0.1.0075`
+- 真机闭环：
+  1. 安装 `0.1.0075` 成功
+  2. client hello 回连，capability 含 `run-root-command`
+  3. `run-root-command root-status` 成功
+  4. `press-key {"key":"home","backend":"root"}` 成功，返回 `press-key:root:home`
+- 当前未闭环项：
+  - `capture-screenshot` 仍走 projection 路线；本轮因 `SCREENSHOT_PERMISSION_NOT_READY` 未完成 root 侧截图证据
+  - 说明下一步优先级应转到：`capture-screenshot-root` 与 `dump-window-state-root`
+
+- 真机 root 闭环补证：
+  - 安装 `0.1.0072` 后，client hello 已声明 capability：`run-root-command`
+  - 真机成功命令：
+    - `run-root-command {"probe":"id"}`
+    - 返回：`uid=0(root) gid=0(root) groups=0(root) context=u:r:su:s0`
+    - `run-root-command {"probe":"root-status"}`
+    - 返回：`uid=0(root) ... / root / Enforcing`
+- 关键结论：
+  1. Flowy app 内 root 已真实可用。
+  2. `adb shell su -c ...` 报 `su: inaccessible or not found`，**不代表** Flowy app 内不能拿 root。
+  3. 因此后续 root 能力验证应以 **Flowy 自身 root probe** 为准，不以 adb shell 结果替代。
+- 本轮新增开发探针命令：`run-root-command`
+- 设计边界：
+  - 仅支持白名单 probe：`id` / `whoami` / `getenforce` / `root-status`
+  - 不开放任意 shell，避免把 dev probe 误扩成无限制 root 执行面
+- 代码落点：
+  - `RootCommandBlock`
+  - `ExecuteOperationBlock`
+  - `WsSessionFlow`
+  - `DaemonStartupFlow`
+- 当前 build 结果：
+  - `./scripts/dev/build-android-lab.sh` 通过
+  - 版本从 `0.1.0071` bump 到 `0.1.0072`
+- 当前已知限制：
+  - 旧版 Flowy 尚未真正使用 root
+  - `adb shell su -c ...` 当前返回 `su: inaccessible or not found`
+  - 因此还需要用新版 app 真机直接执行 `run-root-command` 才能确认 Flowy 侧是否存在 app-only 的 root 可用性
+
+
+### 标准 workflow 闭环补完（2026-04-26）
+
+- 本轮新增：
+  - `run-workflow-step` 命令
+  - 真正串起：
+    - `observe-page`
+    - `filter-targets`
+    - `evaluate-anchor(pre)`
+    - `execute-operation`
+    - `observe-page(post)`
+    - `evaluate-anchor(post)`
+    - `emit-event`
+- 同时补齐 operation 侧标准单测：
+  - `TapBlockTest`
+  - `ScrollBlockTest`
+  - `InputTextBlockTest`
+  - `BackBlockTest`
+  - `PressKeyBlockTest` 增补 root run
+  - `OperationRunFlowTest`
+  - `WorkflowStepFlowTest`
+
+- 首次真机 workflow smoke 失败原因：
+  - 流程：
+    - 从 Flowy DevPanel 识别 `OPEN ACCESSIBILITY SETTINGS`
+    - accessibility tap 成功
+    - 目标实际已跳到 `com.android.settings`
+  - 失败原因不是 tap 失败：
+    - `dump-window-state-root` 证明当前焦点已是 `com.android.settings/.SubSettings`
+    - 但 `post observe` 第一次读到的还是旧的 accessibility snapshot（仍然是 `com.flowy.explore`）
+    - 所以第一次实现把“观察未刷新”误判成了 `POST_ANCHOR_NOT_MATCHED`
+
+- 修复：
+  - `WorkflowStepFlow` 新增 `postObservePolicy`
+    - `maxAttempts`
+    - `pollIntervalMs`
+  - post-anchor 现在不是单次 observe 判定，而是 bounded retry：
+    - observe
+    - evaluate post-anchor
+    - 未命中则 sleep + retry
+    - 直到成功或达到尝试上限
+
+- 真机成功证据：
+  - build：
+    - `./scripts/dev/build-android-lab.sh`
+    - 版本从 `0.1.0079` bump 到 `0.1.0080`
+  - install：
+    - `./scripts/dev/phase-a-install-android-lab.sh`
+  - hello：
+    - `/exp01/clients` 显示 `runtimeVersion: 0.1.0080`
+    - capabilities 新增 `run-workflow-step`
+  - 成功 workflow：
+    - `./scripts/dev/phase-a-send-command.sh run-workflow-step flowy-open-accessibility-v2 '...'`
+    - response：
+      - `status=ok`
+      - `message=workflow-step:tap:ok`
+    - runId：
+      - `2026-04-26T14-42-03_run-workflow-step_flowy-open-accessibility-v2`
+  - workflow 事件日志关键证据：
+    - `operation.finished`：
+      - `tap:accessibility:608,1606`
+    - 第二次 post observe：
+      - `capturedAt=2026-04-26T14:42:04.223634+08:00`
+      - `app.packageName=com.android.settings`
+      - `windowTitle=Flowy Accessibility`
+    - `anchor.post.checked`：
+      - `matched=true`
+    - `workflow.step.succeeded`
+  - 补充根证据：
+    - `dump-window-state-root` runId：
+      - `2026-04-26T14-42-13_dump-window-state-root_workflow-success-post-state`
+    - `root-window-state.json` 显示：
+      - `com.android.settings/com.android.settings.SubSettings`

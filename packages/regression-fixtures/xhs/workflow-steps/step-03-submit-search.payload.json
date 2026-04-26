@@ -1,0 +1,43 @@
+{
+  "workflowId": "xhs_submit_search",
+  "observerSpec": {
+    "requireAccessibility": true,
+    "requireScreenshot": false
+  },
+  "targetFilter": {
+    "anchorId": "search_input",
+    "selector": {
+      "editable": true
+    }
+  },
+  "operationPlan": {
+    "kind": "press-key",
+    "backend": "accessibility",
+    "payload": {
+      "key": "search"
+    }
+  },
+  "anchorPolicy": {
+    "preAnchor": {
+      "packageName": "com.xingin.xhs",
+      "mustContainTexts": [
+        "deepseek v4"
+      ]
+    },
+    "postAnchor": {
+      "packageName": "com.xingin.xhs",
+      "mustContainTexts": [
+        "综合",
+        "最新"
+      ]
+    }
+  },
+  "timingPolicy": {
+    "minDelayMs": 700,
+    "maxDelayMs": 1400
+  },
+  "postObservePolicy": {
+    "maxAttempts": 8,
+    "pollIntervalMs": 400
+  }
+}

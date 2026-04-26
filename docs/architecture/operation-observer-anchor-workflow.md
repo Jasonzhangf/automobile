@@ -179,6 +179,15 @@ observe
 -> continue / retry / fail
 ```
 
+补充要求：
+
+- `post-anchor` 不能默认做单次判定。
+- 对跨页面 / 跨 APP 跳转，运行时必须允许 **bounded retry / poll**：
+  - 重复 `observe`
+  - 直到拿到新的 page state / 新的 accessibility snapshot
+  - 或达到 timeout / max-attempts 再失败
+- 否则会把“操作已成功、观察还没刷新”误判成 workflow 失败。
+
 最小单步 workflow 由 4 部分组成：
 
 1. `observerSpec`

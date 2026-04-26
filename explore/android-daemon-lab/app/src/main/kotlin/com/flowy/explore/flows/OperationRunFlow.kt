@@ -10,16 +10,31 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class OperationRunFlow(
-  private val appendLogBlock: AppendLogBlock,
-  private val versionReader: VersionReader,
-  private val wsClientAdapter: WsClientAdapter,
-  private val executeOperationBlock: ExecuteOperationBlock,
+  private val logInfo: (String, String, String, String, String) -> Unit,
+  private val logError: (String, String, String, String, String) -> Unit,
+  private val versionName: () -> String,
+  private val sendResponse: (String) -> Boolean,
+  private val executeOperation: (String, JSONObject, String) -> JSONObject,
+  private val deviceInfo: () -> Triple<String, String, String> = { Triple(Build.DEVICE, Build.MODEL, Build.VERSION.RELEASE) },
 ) {
+  constructor(
+    appendLogBlock: AppendLogBlock,
+    versionReader: VersionReader,
+    wsClientAdapter: WsClientAdapter,
+    executeOperationBlock: ExecuteOperationBlock,
+  ) : this(
+    logInfo = { event, message, requestId, runId, command -> appendLogBlock.info(event, message, requestId, runId, command) },
+    logError = { event, message, requestId, runId, command -> appendLogBlock.error(event, message, requestId, runId, command) },
+    versionName = versionReader::versionName,
+    sendResponse = wsClientAdapter::send,
+    executeOperation = executeOperationBlock::run,
+  )
+
   fun run(requestId: String, runId: String, command: String, payload: JSONObject) {
     val startedAt = TimeHelper.now()
-    appendLogBlock.info("operation_started", "starting $command", requestId, runId, command)
+    logInfo("operation_started", "starting $command", requestId, runId, command)
     try {
-      val blockResult = executeOperationBlock.run(command, payload, command)
+      val blockResult = executeOperation(command, payload, command)
       if (blockResult.getString("status") != "ok") {
         val error = blockResult.optJSONObject("error")
         val code = error?.optString("code").orEmpty().ifBlank { "OPERATION_FAILED" }
@@ -27,18 +42,18 @@ class OperationRunFlow(
       }
       val output = blockResult.optJSONObject("output") ?: JSONObject()
       val message = output.optString("message", command)
-      wsClientAdapter.send(response(requestId, runId, command, startedAt, "ok", message).toString())
-      appendLogBlock.info("operation_finished", "finished $command", requestId, runId, command)
-      appendLogBlock.info("command_finished", "finished $command", requestId, runId, command)
+      sendResponse(response(requestId, runId, command, startedAt, "ok", message).toString())
+      logInfo("operation_finished", "finished $command", requestId, runId, command)
+      logInfo("command_finished", "finished $command", requestId, runId, command)
     } catch (throwable: Throwable) {
-      wsClientAdapter.send(response(requestId, runId, command, startedAt, "error", throwable.message ?: "OPERATION_FAILED").apply {
+      sendResponse(response(requestId, runId, command, startedAt, "error", throwable.message ?: "OPERATION_FAILED").apply {
         put("error", JSONObject().apply {
           put("code", throwable.message ?: "OPERATION_FAILED")
           put("message", throwable.message ?: "OPERATION_FAILED")
         })
       }.toString())
-      appendLogBlock.error("operation_failed", throwable.message ?: "operation failed", requestId, runId, command)
-      appendLogBlock.error("command_failed", "$command failed", requestId, runId, command)
+      logError("operation_failed", throwable.message ?: "operation failed", requestId, runId, command)
+      logError("command_failed", "$command failed", requestId, runId, command)
     }
   }
 
@@ -51,6 +66,7 @@ class OperationRunFlow(
     message: String,
   ): JSONObject {
     val finishedAt = TimeHelper.now()
+    val (deviceId, model, androidVersion) = deviceInfo()
     return JSONObject().apply {
       put("protocolVersion", "exp01")
       put("requestId", requestId)
@@ -61,13 +77,13 @@ class OperationRunFlow(
       put("finishedAt", finishedAt)
       put("durationMs", 0)
       put("device", JSONObject().apply {
-        put("deviceId", Build.DEVICE)
-        put("model", Build.MODEL)
-        put("androidVersion", Build.VERSION.RELEASE)
+        put("deviceId", deviceId)
+        put("model", model)
+        put("androidVersion", androidVersion)
       })
       put("app", JSONObject().apply {
         put("packageName", "com.flowy.explore")
-        put("runtimeVersion", versionReader.versionName())
+        put("runtimeVersion", versionName())
       })
       put("artifacts", JSONArray())
       put("error", JSONObject.NULL)

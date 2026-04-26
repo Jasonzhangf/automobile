@@ -1,0 +1,36 @@
+{
+  "workflowId": "xhs_open_comment_expanded",
+  "observerSpec": {
+    "requireAccessibility": true,
+    "requireScreenshot": false
+  },
+  "targetFilter": {
+    "anchorId": "comment_entry",
+    "selector": {
+      "clickable": true
+    }
+  },
+  "operationPlan": {
+    "kind": "tap",
+    "backend": "accessibility"
+  },
+  "anchorPolicy": {
+    "preAnchor": {
+      "packageName": "com.xingin.xhs"
+    },
+    "postAnchor": {
+      "packageName": "com.xingin.xhs",
+      "mustContainTexts": [
+        "评论"
+      ]
+    }
+  },
+  "timingPolicy": {
+    "minDelayMs": 800,
+    "maxDelayMs": 1500
+  },
+  "postObservePolicy": {
+    "maxAttempts": 8,
+    "pollIntervalMs": 400
+  }
+}

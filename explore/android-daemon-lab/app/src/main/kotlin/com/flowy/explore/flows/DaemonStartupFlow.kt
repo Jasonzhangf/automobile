@@ -6,13 +6,18 @@ import com.flowy.explore.blocks.BackBlock
 import com.flowy.explore.blocks.CaptureScreenshotBlock
 import com.flowy.explore.blocks.ConnectWsBlock
 import com.flowy.explore.blocks.DumpAccessibilityTreeBlock
+import com.flowy.explore.blocks.EmitEventBlock
 import com.flowy.explore.blocks.ExecuteOperationBlock
 import com.flowy.explore.blocks.HandleFetchLogsBlock
 import com.flowy.explore.blocks.HandlePingBlock
 import com.flowy.explore.blocks.InputTextBlock
 import com.flowy.explore.blocks.ObservePageBlock
+import com.flowy.explore.blocks.OpenDeepLinkBlock
 import com.flowy.explore.blocks.PressKeyBlock
 import com.flowy.explore.blocks.ReadLogTailBlock
+import com.flowy.explore.blocks.RootCommandBlock
+import com.flowy.explore.blocks.RootWindowStateBlock
+import com.flowy.explore.blocks.RootScreenshotBlock
 import com.flowy.explore.blocks.ScrollBlock
 import com.flowy.explore.blocks.TapBlock
 import com.flowy.explore.blocks.UploadArtifactBlock
@@ -42,7 +47,10 @@ class DaemonStartupFlow(
     lateinit var fetchLogsFlow: FetchLogsFlow
     lateinit var screenshotCaptureFlow: ScreenshotCaptureFlow
     lateinit var accessibilityDumpFlow: AccessibilityDumpFlow
+    lateinit var rootScreenshotCaptureFlow: RootScreenshotCaptureFlow
+    lateinit var rootWindowStateFlow: RootWindowStateFlow
     lateinit var operationRunFlow: OperationRunFlow
+    lateinit var workflowStepFlow: WorkflowStepFlow
     wsClientAdapter = WsClientAdapter(
       onOpen = {
         reconnectFlow.reset()
@@ -57,7 +65,10 @@ class DaemonStartupFlow(
           fetchLogsFlow,
           screenshotCaptureFlow,
           accessibilityDumpFlow,
+          rootScreenshotCaptureFlow,
+          rootWindowStateFlow,
           operationRunFlow,
+          workflowStepFlow,
         ).onMessage(message)
       },
       onClosing = {
@@ -93,6 +104,23 @@ class DaemonStartupFlow(
       uploadArtifactBlock = UploadArtifactBlock(DevServerReader(context).read()),
       wsClientAdapter = wsClientAdapter,
     )
+    rootScreenshotCaptureFlow = RootScreenshotCaptureFlow(
+      appendLogBlock = appendLogBlock,
+      versionReader = versionReader,
+      displayInfoReader = DisplayInfoReader(context),
+      rootScreenshotBlock = RootScreenshotBlock(),
+      rootWindowStateBlock = RootWindowStateBlock(),
+      uploadArtifactBlock = UploadArtifactBlock(DevServerReader(context).read()),
+      wsClientAdapter = wsClientAdapter,
+    )
+    rootWindowStateFlow = RootWindowStateFlow(
+      appendLogBlock = appendLogBlock,
+      versionReader = versionReader,
+      displayInfoReader = DisplayInfoReader(context),
+      rootWindowStateBlock = RootWindowStateBlock(),
+      uploadArtifactBlock = UploadArtifactBlock(DevServerReader(context).read()),
+      wsClientAdapter = wsClientAdapter,
+    )
     operationRunFlow = OperationRunFlow(
       appendLogBlock = appendLogBlock,
       versionReader = versionReader,
@@ -103,7 +131,33 @@ class DaemonStartupFlow(
         inputTextBlock = InputTextBlock(),
         backBlock = BackBlock(),
         pressKeyBlock = PressKeyBlock(),
+        openDeepLinkBlock = OpenDeepLinkBlock(context),
+        rootCommandBlock = RootCommandBlock(),
       ),
+    )
+    workflowStepFlow = WorkflowStepFlow(
+      logInfo = { event, message, requestId, runId, command -> appendLogBlock.info(event, message, requestId, runId, command) },
+      logError = { event, message, requestId, runId, command -> appendLogBlock.error(event, message, requestId, runId, command) },
+      versionName = versionReader::versionName,
+      sendResponse = wsClientAdapter::send,
+      observePage = observePageBlock::observe,
+      filterTargets = com.flowy.explore.blocks.FilterTargetsBlock()::run,
+      evaluateAnchor = com.flowy.explore.blocks.EvaluateAnchorBlock()::run,
+      executeOperation = ExecuteOperationBlock(
+        tapBlock = TapBlock(),
+        scrollBlock = ScrollBlock(),
+        inputTextBlock = InputTextBlock(),
+        backBlock = BackBlock(),
+        pressKeyBlock = PressKeyBlock(),
+        openDeepLinkBlock = OpenDeepLinkBlock(context),
+        rootCommandBlock = RootCommandBlock(),
+      )::run,
+      emitEvent = EmitEventBlock(
+        sender = { event ->
+          appendLogBlock.info("workflow_event", event)
+          true
+        },
+      )::run,
     )
     FlowyAccessibilityService.setAvailabilityListener { sendHello() }
     connect(onStatus)
@@ -126,7 +180,10 @@ class DaemonStartupFlow(
     fetchLogsFlow: FetchLogsFlow,
     screenshotCaptureFlow: ScreenshotCaptureFlow,
     accessibilityDumpFlow: AccessibilityDumpFlow,
+    rootScreenshotCaptureFlow: RootScreenshotCaptureFlow,
+    rootWindowStateFlow: RootWindowStateFlow,
     operationRunFlow: OperationRunFlow,
+    workflowStepFlow: WorkflowStepFlow,
   ): WsSessionFlow {
     return WsSessionFlow(
       appendLogBlock,
@@ -134,7 +191,10 @@ class DaemonStartupFlow(
       fetchLogsFlow,
       screenshotCaptureFlow,
       accessibilityDumpFlow,
+      rootScreenshotCaptureFlow,
+      rootWindowStateFlow,
       operationRunFlow,
+      workflowStepFlow,
     )
   }
 
@@ -149,6 +209,9 @@ class DaemonStartupFlow(
         put("ping")
         put("fetch-logs")
         put("capture-screenshot")
+        put("capture-screenshot-root")
+        put("dump-window-state-root")
+        put("run-root-command")
         if (accessibilityStatusReader.isEnabled()) {
           put("dump-accessibility-tree")
           put("tap")
@@ -156,6 +219,8 @@ class DaemonStartupFlow(
           put("input-text")
           put("back")
           put("press-key")
+          put("open-deep-link")
+          put("run-workflow-step")
         }
       })
       put("sentAt", TimeHelper.now())

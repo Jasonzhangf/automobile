@@ -17,6 +17,19 @@
 
 - `deepseek v4`
 
+这份文档现在不再承担“探索模板真源”。
+
+探索模板真源已拆到：
+
+- 通用模板：`docs/architecture/app-exploration-template-spec.md`
+- 小红书实例：`docs/experiments/xhs-exploration-template-v1.md`
+
+本文件只保留：
+
+1. 目标 flow
+2. 从探索模板提升为正式 flow 时的业务目标
+3. 哪些探索 step 会进入正式采集 flow
+
 ---
 
 ## 一、Flow 边界
@@ -34,10 +47,15 @@
 - 文档导出格式
 - OCR / vision 补洞细节
 - 评论多页深翻策略优化
+- 页面探索模板细节（已移出到 `xhs-exploration-template-v1.md`）
 
 ---
 
 ## 二、页面序列
+
+页面识别、锚点、字段映射的标准真源，改为引用：
+
+- `docs/experiments/xhs-exploration-template-v1.md`
 
 ### 1. `xhs_home_feed_page`
 
@@ -103,7 +121,20 @@
 - 滚动采集评论
 - 判断评论流结束
 
-### 6. `xhs_blocker_page`
+### 6. `xhs_reply_composer_page`
+
+识别信号：
+
+- 输入框文案类似 `回复 @xxx：`
+- `发送` 按钮
+- 表情栏 / 输入法可见
+
+目标：
+
+- 识别这是“回复输入态”而不是正文详情态
+- 允许 `back` 回到详情评论区
+
+### 7. `xhs_blocker_page`
 
 识别信号：
 
@@ -115,6 +146,26 @@
 目标：
 
 - 消障后回主流程
+
+---
+
+## 三、探索模板到正式 flow 的映射
+
+正式 flow 当前直接复用这些探索 step：
+
+1. `xhs_open_search_entry`
+2. `xhs_input_keyword`
+3. `xhs_submit_search`
+4. `xhs_open_next_result_card`
+5. `xhs_collect_detail_overview`
+6. `xhs_open_comment_expanded`
+7. `xhs_collect_comment_list`
+8. `xhs_back_to_result_list`
+
+区别是：
+
+- 探索模板重点是“识别什么、证据是什么”
+- 正式 flow 重点是“如何稳定循环推进”
 
 ---
 
@@ -134,6 +185,7 @@
 - `capture_screenshot` 不是为了“控制”，而是为了详情采集证据和图片区补洞。
 - 正文 / 评论优先走 Accessibility。
 - 图片优先走 screenshot artifact。
+- 第三方业务路径必须只走用户态原语；这里不允许把 `intent / deep-link / component` 记入 flow。
 
 ---
 
@@ -304,6 +356,12 @@ observe current detail/comment page
 ### note
 
 - 若评论区与正文区不是同一个 scroll container，则切到 `xhs_comment_expanded_page`
+- 当前真机样本中，详情页评论区域的滚动更适合使用 **明确 bounds 的 scroll**，不能假设默认 scroll target 一定正确。
+- `展开 N 条回复` 不是稳定单义入口；点击后可能进入：
+  - 回复输入态 `xhs_reply_composer_page`
+  - 内联回复展开态
+  - 其他回复容器
+- 因此这一步必须带 post-anchor 与 settle wait，不能只看一次 observe。
 
 ---
 
@@ -321,6 +379,7 @@ back
 - 关键词仍在
 - 结果列表恢复
 - 刚才访问过的卡片已加入 visited set
+- 若首次 observe 未命中结果页锚点，要短等待后 re-observe，避免页面切换瞬间的旧树残留
 
 ---
 

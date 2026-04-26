@@ -34,3 +34,11 @@
 - Android 16 / Oplus 上的 MediaProjection 长驻会话要按这个顺序建：**先拿 grant -> 提升前台服务到 `mediaProjection` type -> `registerCallback()` -> `createVirtualDisplay()` -> 复用同一 `MediaProjection + VirtualDisplay + ImageReader`**；否则会分别撞上 `android:project_media`、`Must register a callback before starting capture`、或 token/resultData 复用错误。
 - `MediaProjectionSessionHolder.store()` 不能静默吞异常；投屏授权链路一旦失败，至少要把真实异常打到 logcat/状态文本，否则会把“没拿到权限”和“session 初始化顺序错误”混成一个假象。
 - 已验证的真机叶子能力应先收口成标准骨架模块，再进入业务流程探索；当前固定骨架为：`observe-page -> filter-targets -> evaluate-anchor -> execute-operation -> emit-event`，其中 `capture-screenshot / dump-accessibility-tree / tap / scroll / input-text / press-key / back` 作为骨架叶子块挂接。
+- 第三方业务 APP 的真实业务流探索必须坚持 **纯用户态操作**：只用点击、滚动、输入、返回、截屏、Accessibility 观察；`intent / deep-link / component 直开` 会触发真实风控风险，不能作为业务入口方案，优先级高于“先把流程打通”的临时捷径。
+- 一旦进入正式业务 flow 编程，用户态 operation 必须带 **随机时间间隔 / 抖动**，不能用固定节拍执行；这应作为 runtime timing policy，而不是散落在单个脚本里的临时 sleep。
+- `open-deep-link` 仅适用于 Flowy 自身、系统设置、授权页、调试面板等非业务目标；不适用于小红书、微博等第三方内容 APP 的业务页面推进。
+- 小红书当前设备/账号实验新增稳定约束：**只要 Flowy Accessibility Service 开启，搜索后点详情就会风控；关闭后恢复正常**。因此 XHS 业务 flow 现阶段不能依赖 Accessibility 开启态下的操作推进，只能转为手动主导、观察辅助，或改测其他不受该约束的页面链路。
+- 当前设备 root 验证新增稳定经验：`adb shell` 侧出现 `su: inaccessible or not found` 并不等于 app 内 root 不可用；应优先用 Flowy 自身的 `run-root-command` probe 验证 app 内 root 真相。
+- operation backend 当前稳定策略：同一 operation contract 可挂 accessibility/root 平行实现，但默认始终先走 accessibility；root 仅作为明确指定或必要时的增强 backend。
+- root shell 若要承载 `screencap/cat` 这类大 stdout 二进制输出，不能 `waitFor` 完整退出后再读管道；必须并发消费 stdout，否则容易卡成假超时，并被误判为 `ROOT_BINARY_NOT_FOUND`。
+- workflow 的 post-anchor 在真机上不能做单次 observe 判定；跨页面切换时 Accessibility snapshot 可能短时间仍是旧页，必须做 **bounded retry/poll**，直到新 snapshot 到达或超时失败。

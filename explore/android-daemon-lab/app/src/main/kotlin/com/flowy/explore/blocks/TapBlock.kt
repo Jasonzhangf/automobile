@@ -1,15 +1,28 @@
 package com.flowy.explore.blocks
 
 import com.flowy.explore.foundation.AccessibilityTargeting
+import com.flowy.explore.foundation.OperationBackend
+import com.flowy.explore.foundation.RootShellRunner
 import com.flowy.explore.runtime.AccessibilitySnapshotStore
 import com.flowy.explore.runtime.FlowyAccessibilityService
 import org.json.JSONObject
 
-class TapBlock {
+class TapBlock(
+  private val rootShellRunner: RootShellRunner = RootShellRunner(),
+) {
   fun run(payload: JSONObject): String {
     val point = AccessibilityTargeting.pointFromPayload(payload) ?: resolvePoint(payload)
-    check(FlowyAccessibilityService.requireInstance().performTap(point.first, point.second)) { "TAP_FAILED" }
-    return "tap:${point.first},${point.second}"
+    return when (OperationBackend.fromPayload(payload)) {
+      OperationBackend.ACCESSIBILITY -> {
+        check(FlowyAccessibilityService.requireInstance().performTap(point.first, point.second)) { "TAP_FAILED" }
+        "tap:accessibility:${point.first},${point.second}"
+      }
+      OperationBackend.ROOT -> {
+        val result = rootShellRunner.run("input tap ${point.first} ${point.second}")
+        check(result.exitCode == 0) { "TAP_FAILED" }
+        "tap:root:${point.first},${point.second}"
+      }
+    }
   }
 
   private fun resolvePoint(payload: JSONObject): Pair<Int, Int> {
