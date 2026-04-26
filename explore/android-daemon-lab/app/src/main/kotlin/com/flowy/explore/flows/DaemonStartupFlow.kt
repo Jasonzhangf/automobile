@@ -5,6 +5,7 @@ import com.flowy.explore.blocks.AppendLogBlock
 import com.flowy.explore.blocks.BackBlock
 import com.flowy.explore.blocks.CaptureScreenshotBlock
 import com.flowy.explore.blocks.ConnectWsBlock
+import com.flowy.explore.blocks.DumpUiTreeRootBlock
 import com.flowy.explore.blocks.DumpAccessibilityTreeBlock
 import com.flowy.explore.blocks.EmitEventBlock
 import com.flowy.explore.blocks.ExecuteOperationBlock
@@ -51,6 +52,7 @@ class DaemonStartupFlow(
     lateinit var rootWindowStateFlow: RootWindowStateFlow
     lateinit var operationRunFlow: OperationRunFlow
     lateinit var workflowStepFlow: WorkflowStepFlow
+    lateinit var dumpUiTreeRootFlow: DumpUiTreeRootFlow
     wsClientAdapter = WsClientAdapter(
       onOpen = {
         reconnectFlow.reset()
@@ -67,6 +69,7 @@ class DaemonStartupFlow(
           accessibilityDumpFlow,
           rootScreenshotCaptureFlow,
           rootWindowStateFlow,
+          dumpUiTreeRootFlow,
           operationRunFlow,
           workflowStepFlow,
         ).onMessage(message)
@@ -87,6 +90,7 @@ class DaemonStartupFlow(
     val observePageBlock = ObservePageBlock(
       displayInfoReader = DisplayInfoReader(context),
       dumpAccessibilityTreeBlock = DumpAccessibilityTreeBlock(),
+      dumpUiTreeRootBlock = DumpUiTreeRootBlock(),
       captureScreenshotBlock = CaptureScreenshotBlock(),
     )
     screenshotCaptureFlow = ScreenshotCaptureFlow(
@@ -118,6 +122,14 @@ class DaemonStartupFlow(
       versionReader = versionReader,
       displayInfoReader = DisplayInfoReader(context),
       rootWindowStateBlock = RootWindowStateBlock(),
+      uploadArtifactBlock = UploadArtifactBlock(DevServerReader(context).read()),
+      wsClientAdapter = wsClientAdapter,
+    )
+    dumpUiTreeRootFlow = DumpUiTreeRootFlow(
+      appendLogBlock = appendLogBlock,
+      versionReader = versionReader,
+      displayInfoReader = DisplayInfoReader(context),
+      dumpUiTreeRootBlock = DumpUiTreeRootBlock(),
       uploadArtifactBlock = UploadArtifactBlock(DevServerReader(context).read()),
       wsClientAdapter = wsClientAdapter,
     )
@@ -182,6 +194,7 @@ class DaemonStartupFlow(
     accessibilityDumpFlow: AccessibilityDumpFlow,
     rootScreenshotCaptureFlow: RootScreenshotCaptureFlow,
     rootWindowStateFlow: RootWindowStateFlow,
+    dumpUiTreeRootFlow: DumpUiTreeRootFlow,
     operationRunFlow: OperationRunFlow,
     workflowStepFlow: WorkflowStepFlow,
   ): WsSessionFlow {
@@ -193,6 +206,7 @@ class DaemonStartupFlow(
       accessibilityDumpFlow,
       rootScreenshotCaptureFlow,
       rootWindowStateFlow,
+      dumpUiTreeRootFlow,
       operationRunFlow,
       workflowStepFlow,
     )
@@ -211,16 +225,18 @@ class DaemonStartupFlow(
         put("capture-screenshot")
         put("capture-screenshot-root")
         put("dump-window-state-root")
+        put("dump-ui-tree-root")
         put("run-root-command")
+        put("run-workflow-step")
+        // operations always available (root backend)
+        put("tap")
+        put("scroll")
+        put("input-text")
+        put("back")
+        put("press-key")
         if (accessibilityStatusReader.isEnabled()) {
           put("dump-accessibility-tree")
-          put("tap")
-          put("scroll")
-          put("input-text")
-          put("back")
-          put("press-key")
           put("open-deep-link")
-          put("run-workflow-step")
         }
       })
       put("sentAt", TimeHelper.now())

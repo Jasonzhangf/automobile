@@ -16,6 +16,7 @@ import org.json.JSONObject
 class ObservePageBlock(
   private val readDisplayInfo: () -> DisplayInfo,
   private val dumpAccessibility: () -> AccessibilitySnapshot?,
+  private val dumpRootUi: () -> AccessibilitySnapshot?,
   private val peekAccessibility: () -> AccessibilitySnapshot?,
   private val captureScreenshot: () -> ProjectionCapture,
   private val isProjectionReady: () -> Boolean,
@@ -24,10 +25,12 @@ class ObservePageBlock(
   constructor(
     displayInfoReader: DisplayInfoReader,
     dumpAccessibilityTreeBlock: DumpAccessibilityTreeBlock,
+    dumpUiTreeRootBlock: DumpUiTreeRootBlock,
     captureScreenshotBlock: CaptureScreenshotBlock,
   ) : this(
     readDisplayInfo = displayInfoReader::read,
     dumpAccessibility = dumpAccessibilityTreeBlock::run,
+    dumpRootUi = dumpUiTreeRootBlock::run,
     peekAccessibility = AccessibilitySnapshotStore::current,
     captureScreenshot = captureScreenshotBlock::run,
     isProjectionReady = MediaProjectionSessionHolder::isReady,
@@ -40,9 +43,13 @@ class ObservePageBlock(
     observerSpec: JSONObject,
   ): ObservedPageState {
     val requireAccessibility = observerSpec.optBoolean("requireAccessibility")
+    val requireRootDump = observerSpec.optBoolean("requireRootDump")
     val requireScreenshot = observerSpec.optBoolean("requireScreenshot")
-    val accessibilitySnapshot = if (requireAccessibility) dumpAccessibility() else peekAccessibility()
-    if (requireAccessibility && accessibilitySnapshot == null) error("ACCESSIBILITY_ROOT_UNAVAILABLE")
+    val accessibilitySnapshot = when {
+      requireRootDump -> dumpRootUi() ?: error("ROOT_UI_DUMP_UNAVAILABLE")
+      requireAccessibility -> dumpAccessibility() ?: error("ACCESSIBILITY_ROOT_UNAVAILABLE")
+      else -> peekAccessibility()
+    }
     val screenshotCapture = if (requireScreenshot) captureScreenshot() else null
     val capturedAt = accessibilitySnapshot?.capturedAt ?: now()
     val displayInfo = screenshotCapture?.displayInfo ?: readDisplayInfo()

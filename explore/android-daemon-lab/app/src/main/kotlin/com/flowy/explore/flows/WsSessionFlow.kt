@@ -11,6 +11,7 @@ class WsSessionFlow(
   private val accessibilityDumpFlow: AccessibilityDumpFlow,
   private val rootScreenshotCaptureFlow: RootScreenshotCaptureFlow,
   private val rootWindowStateFlow: RootWindowStateFlow,
+  private val dumpUiTreeRootFlow: DumpUiTreeRootFlow,
   private val operationRunFlow: OperationRunFlow,
   private val workflowStepFlow: WorkflowStepFlow,
 ) {
@@ -28,6 +29,7 @@ class WsSessionFlow(
       "dump-accessibility-tree" -> accessibilityDumpFlow.run(requestId, runId, command)
       "capture-screenshot-root" -> rootScreenshotCaptureFlow.run(requestId, runId, command)
       "dump-window-state-root" -> rootWindowStateFlow.run(requestId, runId, command)
+      "dump-ui-tree-root" -> dumpUiTreeRootFlow.run(requestId, runId, command)
       "run-workflow-step" -> workflowStepFlow.run(requestId, runId, command, payload)
       "tap", "scroll", "input-text", "back", "press-key", "open-deep-link", "run-root-command" ->
         operationRunFlow.run(requestId, runId, command, payload)

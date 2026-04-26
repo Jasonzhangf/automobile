@@ -1,8 +1,9 @@
 {
   "workflowId": "xhs_input_keyword",
   "observerSpec": {
-    "requireAccessibility": true,
-    "requireScreenshot": false
+    "requireAccessibility": false,
+    "requireScreenshot": false,
+    "requireRootDump": true
   },
   "targetFilter": {
     "anchorId": "search_input",

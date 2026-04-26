@@ -1,8 +1,9 @@
 {
   "workflowId": "xhs_open_next_result_card",
   "observerSpec": {
-    "requireAccessibility": true,
-    "requireScreenshot": true
+    "requireAccessibility": false,
+    "requireScreenshot": true,
+    "requireRootDump": true
   },
   "targetFilter": {
     "anchorId": "result_card",

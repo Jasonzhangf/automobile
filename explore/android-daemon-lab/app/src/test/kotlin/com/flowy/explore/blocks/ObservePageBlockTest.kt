@@ -20,6 +20,7 @@ class ObservePageBlockTest {
     val block = ObservePageBlock(
       readDisplayInfo = { DisplayInfo(1216, 2640, 560, 0, 0) },
       dumpAccessibility = { snapshot },
+      dumpRootUi = { null },
       peekAccessibility = { snapshot },
       captureScreenshot = { ProjectionCapture(byteArrayOf(1), DisplayInfo(1216, 2640, 560, 0, 0)) },
       isProjectionReady = { false },
@@ -46,6 +47,7 @@ class ObservePageBlockTest {
     val block = ObservePageBlock(
       readDisplayInfo = { DisplayInfo(1216, 2640, 560, 0, 0) },
       dumpAccessibility = { snapshot },
+      dumpRootUi = { null },
       peekAccessibility = { snapshot },
       captureScreenshot = { ProjectionCapture(byteArrayOf(1), DisplayInfo(1216, 2640, 560, 0, 0)) },
       isProjectionReady = { true },
