@@ -77,7 +77,7 @@ class DaemonForegroundService : Service() {
 
   private fun foregroundServiceType(): Int {
     var serviceType = ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-    if (MediaProjectionSessionHolder.isReady()) {
+    if (MediaProjectionSessionHolder.hasGrant()) {
       serviceType = serviceType or ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
     }
     return serviceType
@@ -98,7 +98,9 @@ class DaemonForegroundService : Service() {
     @Volatile private var currentInstance: WeakReference<DaemonForegroundService>? = null
 
     fun promoteProjectionIfReady() {
-      currentInstance?.get()?.startOrRefreshForeground()
+      val service = currentInstance?.get() ?: return
+      service.startOrRefreshForeground()
+      MediaProjectionSessionHolder.activate(service.applicationContext)
     }
   }
 }

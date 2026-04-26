@@ -318,6 +318,104 @@
      - 当前修正：
        - service 事件收敛为 `TYPE_WINDOW_STATE_CHANGED | TYPE_WINDOWS_CHANGED`
        - 增加 debounce + 最小 capture 间隔
+
+## 2026-04-26
+
+### `0.1.0063` 真机闭环：后台截图修复完成
+- 设备：`100.127.23.27:1234`
+- 设备 ID：`OP64DDL1`
+- 最终安装版本：`0.1.0063`
+
+### 本轮根因定位过程
+1. 旧问题不是单一问题，实际上连续踩了 3 类约束：
+   - `android:project_media` / `FOREGROUND_SERVICE_MEDIA_PROJECTION` 时序约束
+   - `Must register a callback before starting capture`
+   - `Don't re-use the resultData ... / don't createVirtualDisplay multiple times`
+2. 原 `MediaProjectionSessionHolder.store()` 静默吞异常，导致面板只显示 `Projection: not-ready`，根因不可见。
+3. 加上 logcat 后拿到真实异常，确认第二个阻塞点是：
+   - `java.lang.IllegalStateException: Must register a callback before starting capture`
+4. 修正后再验证，确认当前稳定做法是：
+   - 用户授权
+   - 前台服务提升到 `mediaProjection`
+   - `registerCallback()`
+   - 创建并保留单个 `MediaProjection + VirtualDisplay + ImageReader`
+   - 后续截图复用同一会话，不再重复 `getMediaProjection()` / `createVirtualDisplay()`
+
+### 本轮代码调整
+- `MediaProjectionSessionHolder`
+  - 改成 **grant pending + activate** 两段式
+  - 补 `lastError` / logcat 输出，去掉静默吞异常
+  - 激活顺序调整为先 `registerCallback()` 再 `createVirtualDisplay()`
+- `DaemonForegroundService`
+  - `foregroundServiceType()` 以 `hasGrant()` 而不是 `isReady()` 判定是否带 `mediaProjection`
+  - `promoteProjectionIfReady()` 在刷新前台服务后主动触发 `activate()`
+
+### 真机成功证据
+1. 授权成功后状态：
+   - run: `artifacts/2026-04-26/2026-04-26T10-24-43_dump-accessibility-tree_v63-after-grant/`
+   - DevPanel 状态文本：`Projection: ready @ 2026-04-26T10:24:30.999236+08:00`
+   - logcat 关键证据：`FlowyProjection: projection session activated`
+2. 前台截图成功：
+   - run: `artifacts/2026-04-26/2026-04-26T10-25-04_capture-screenshot_v63-foreground-after-grant/`
+   - `response.json.status = ok`
+   - 人工查看 `screenshot.png`，内容为 Flowy DevPanel
+3. Home 后后台截图成功：
+   - run: `artifacts/2026-04-26/2026-04-26T10-25-19_capture-screenshot_v63-background-after-home/`
+   - `response.json.status = ok`
+   - `page-context.json.app.packageName = com.android.launcher`
+   - 人工查看 `screenshot.png`，内容为 launcher 首页，不是 Flowy 自身页面
+
+### 当前结论
+- Flowy 自身截图链路已重新拿到真机证据：
+  - 前台截图成功
+  - Home 后后台截图成功
+  - screenshot artifact 正常回传到 Mac
+  - page-context 能对齐前台包名（如 `com.android.launcher`）
+
+### 下一步建议
+1. 停止再用 adb 参与业务流程控制，只保留安装/启动/日志类用途。
+2. 开始进入 **小红书流程探索**：
+   - 打开小红书
+   - 搜索 `deepseek v4`
+   - 记录页面流转、可提取锚点、可执行操作、采集字段
+3. 把这套流程抽成 app-collection workflow 的第一个真实 profile。
+
+### 基础能力已抽成标准框架模块（`0.1.0066`）
+- 本轮目标：不再继续散着做实验块，而是把已验证能力收口成标准骨架模块。
+- 已新增基础骨架块：
+  - `ObservePageBlock`
+  - `FilterTargetsBlock`
+  - `EvaluateAnchorBlock`
+  - `ExecuteOperationBlock`
+  - `EmitEventBlock`
+- 已新增基础真值/工具：
+  - `BlockResultFactory`
+  - `ObservedPageState`
+  - `PageSignatureBuilder`
+- 已完成接线：
+  - `ScreenshotCaptureFlow` 改走 `ObservePageBlock`
+  - `AccessibilityDumpFlow` 改走 `ObservePageBlock`
+  - `OperationRunFlow` 改走 `ExecuteOperationBlock`
+
+### 本轮验证证据
+- 构建门禁：
+  - `./scripts/dev/build-android-lab.sh`
+  - 结果：通过，版本 bump 到 `0.1.0066`
+- 真机安装：
+  - `versionName=0.1.0066`
+- 真机 smoke：
+  - `dump-accessibility-tree` 成功：
+    - `artifacts/2026-04-26/2026-04-26T11-07-47_dump-accessibility-tree_framework-smoke/`
+  - 重新授权后 `capture-screenshot` 成功：
+    - `artifacts/2026-04-26/2026-04-26T11-08-56_capture-screenshot_framework-after-grant/`
+
+### 当前判断
+- 基础能力已经从“散装命令”进入“可复用框架模块”阶段。
+- 下一步可以不再补底层操作，直接开始：
+  - 业务页面流转
+  - filter 设计
+  - anchor 设计
+  - app profile / field mapping
      - 结果：新设备上不再复现之前的 ANR crash。
   2. **daemon 启动时不能无条件以 `mediaProjection` FGS type 起前台服务**
      - 失败证据：
@@ -494,3 +592,768 @@
   - `workflow`：`observe -> filter -> pre-anchor -> operation -> observe -> post-anchor`
 - 当前新真源：`docs/architecture/operation-observer-anchor-workflow.md`
 - 当前下一步：固化 `operation schema`、`observer/filter interface`、`anchor spec`，再落单步 workflow engine
+
+### 悬浮球真机不可见问题已定位并修正（2026-04-22 16:xx）
+- 触发背景：
+  - 用户反馈“看不到悬浮球”
+  - 已知当时：
+    - overlay permission = granted
+    - `WorkbenchOverlayService` 已启动
+    - `dumpsys window` 已存在 `TYPE_APPLICATION_OVERLAY`
+- 根因判断：
+  1. `WorkbenchOverlayService` 使用 `Gravity.END | Gravity.CENTER`
+  2. 但拖拽 / 初始定位逻辑把 `LayoutParams.x/y` 当成**左上角绝对坐标**
+  3. 导致 WindowManager 中窗口虽然存在，但视觉落点不符合预期，容易表现为“窗口存在但球不可见/不好找”
+  4. `DevPanelActivity` 只读静态内存态，不能稳定反映 overlay 当前 showing 状态
+- 本次修正：
+  - overlay 改成 `Gravity.TOP | Gravity.START`
+  - 气泡与面板都改成绝对坐标布局
+  - 新增：
+    - 气泡 `x/y` clamp
+    - 左右贴边 snap
+    - 面板按“向屏幕内展开”重新计算 `panelX`
+  - 新增 `WorkbenchOverlayRuntimeStore`
+    - 用 shared preferences 持久化 `showing / expanded`
+    - DevPanel 不再依赖单纯静态变量
+  - DevPanel 打开/关闭 overlay 后，延迟刷新一次 runtime 状态
+- 真机证据：
+  - build：
+    - `./scripts/dev/build-android-lab.sh`
+    - 版本从 `0.1.0026 -> 0.1.0027 -> 0.1.0028`
+    - 过程中自动执行：
+      - `blocks-spec-unit`
+      - `blocks-spec-coverage`
+      - `:app:testDebugUnitTest`
+  - 安装：
+    - `adb -s 100.120.173.56:46389 install -r .../app-debug.apk`
+  - DevPanel 状态：
+    - 打开 overlay 后 UI dump 显示：
+      - `Overlay: granted / showing=true / expanded=false`
+  - 可见性截图：
+    - `.tmp/overlay_devpanel_v28.png`
+      - 在 DevPanel 页面右侧可直接看到灰色半透明悬浮球，文字 `idle`
+    - `.tmp/overlay_xhs.png`
+      - 在小红书 `com.xingin.xhs` 前台页同样可见
+  - WindowManager 证据（修复前后都能证明 service/window 存在）：
+    - overlay window frame 现已稳定出现在右侧可见区域，例如：
+      - `Rect(906, 627 - 1140, 861)`
+- 当前结论：
+  - **悬浮球现在在真机上已可见，且切到小红书后仍可见**
+  - 当前 overlay v1 已满足继续接入“捕获模式 / 目标标注 / alias / test / save”的骨架前提
+- 下一步更值得做：
+  1. 接 `capture mode` 的长按选中 + 就地 alias 输入框
+  2. 加 `smoke / real click` 测试菜单
+  3. 保存到本地 + 发给 daemon，形成第一条可回放的 target 记录
+
+### 悬浮球视觉第一轮修正（2026-04-22 16:32）
+- 用户反馈：
+  - “这个悬浮球你好歹做成一个球吧，现在这也太土了”
+- 这次不再继续扩 capture mode，先修正悬浮球本体视觉。
+- 修正内容：
+  - 新增 `BubbleView`
+  - 原先矩形 `TextView` 改成固定尺寸圆形球体
+  - 风格改成：
+    - 深灰底
+    - 蓝灰描边
+    - 中心短状态文字
+    - 上方小状态点
+  - 保持当前项目已确认的黑白灰主色 + 蓝灰点缀
+- 相关文件：
+  - `explore/android-daemon-lab/app/src/main/kotlin/com/flowy/explore/ui/workbench/BubbleView.kt`
+  - `explore/android-daemon-lab/app/src/main/kotlin/com/flowy/explore/ui/workbench/WorkbenchViewFactory.kt`
+  - `explore/android-daemon-lab/app/src/main/kotlin/com/flowy/explore/ui/workbench/WorkbenchOverlayService.kt`
+- 验证：
+  - `./scripts/dev/build-android-lab.sh`
+  - `adb -s 100.120.173.56:46389 install -r .../app-debug.apk`
+  - runtime version：`0.1.0029`
+  - 自动回归仍通过：
+    - `blocks-spec-unit`
+    - `blocks-spec-coverage`
+    - `:app:testDebugUnitTest`
+- 真机截图证据：
+  - `.tmp/overlay_ball_devpanel.png`
+  - `.tmp/overlay_ball_xhs.png`
+- 当前结果：
+  - 悬浮球现在已是明确的圆形，不再是矩形块
+  - 小红书前台页也能看到新的圆形球体
+  - 视觉上已经更接近“真正的悬浮球”，可继续进入 capture mode 交互闭环
+
+### logo + 悬浮球图标已切到 globe-in-hand（2026-04-22 17:xx）
+- 用户提供新的图形方向：
+  - 以 `globe in hand` 作为 APP logo 与悬浮球 icon
+  - 状态不再靠中间文字，改为**不同颜色的粗边框**
+- 本轮实现：
+  - 新增资源：
+    - `drawable-nodpi/flowy_mark_light.png`
+    - `drawable-nodpi/flowy_mark_dark.png`
+    - `drawable-nodpi/flowy_logo_tile.png`
+  - `BubbleView` 改成：
+    - 中间使用 `flowy_mark_light`
+    - 外圈使用粗描边表达状态
+    - 当前空闲/连接态截图可见为蓝灰粗边框
+  - APP icon 改成：
+    - 直接在 manifest 使用 `@drawable/flowy_logo_tile`
+    - 避免 OEM 对 adaptive icon 的异常裁切
+- 中间一次失败记录：
+  - 初版 launcher 走 adaptive icon
+  - 在真机系统“应用详情”页里图标被 OEM 裁坏，不能接受
+  - 后续改成预合成 tile 后恢复正常
+- 真实验证：
+  - build/version：
+    - `0.1.0030`
+    - `0.1.0031`
+    - `0.1.0032`
+  - 每次 build 都自动通过：
+    - `blocks-spec-unit`
+    - `blocks-spec-coverage`
+    - `:app:testDebugUnitTest`
+  - 真机截图证据：
+    - `.tmp/overlay_logo_ball_ok2.png`
+      - DevPanel 页已显示 globe-in-hand 悬浮球
+    - `.tmp/overlay_logo_ball_xhs_ok2.png`
+      - 小红书前台页已显示 globe-in-hand 悬浮球
+    - `.tmp/flowy_app_info_ok3.png`
+      - 系统“应用详情”页已显示新的 APP logo
+- 当前结论：
+  - globe-in-hand 现在已经同时用于：
+    1. APP logo
+    2. 悬浮球 icon
+  - 粗边框状态方案已落到 bubble 本体
+  - 当前只对 `idle/connected` 可见态做了真机截图验证；其他状态色已接线，但还未逐个 smoke
+
+### 非 adb 远端控制口识别失败，当前拿到的是 adb TLS 口（2026-04-22 22:xx）
+- 触发背景：
+  - 用户要求：**不能借助 adb，也要能远端控制 / 截屏 / 升级**
+  - 最新给定地址：`100.120.173.56:43325`
+- 本轮探测：
+  1. 直接 HTTP 探测：
+     - `GET /health`
+     - `GET /exp01/clients`
+     - 都没有表现出当前仓库 `services/mac-daemon` 的 `exp01` HTTP 行为
+  2. 原始 TCP 探测：
+     - 空连接：端口可连，但无任何 `exp01` banner
+     - 随机 JSON / HTTP upgrade：不是当前 Flowy control surface
+  3. ADB protocol 探测：
+     - 新增脚本：`scripts/dev/probe-control-endpoint.py`
+     - 对 `100.120.173.56:43325` 发送最小 ADB `CNXN` 握手后，收到：
+       - `command = "STLS"`
+- 结论：
+  - `100.120.173.56:43325` **不是** 当前项目实现的 Flowy `exp01` 控制端口
+  - 它更像 **Android Wireless Debugging / adb TLS transport** 端口
+  - 因此：**当前还没有拿到“非 adb 可直接控制 Flowy runtime”的真实 daemon 地址**
+- 当前证据：
+  - 运行：
+    - `python3 scripts/dev/probe-control-endpoint.py 100.120.173.56:43325`
+  - 关键输出：
+    - `classification = "adb-wireless-debugging-tls"`
+    - `adb.command = "STLS"`
+- 当前影响：
+  - 不能把这个端口当成：
+    - 远端 CLI 控制面
+    - WebSocket control endpoint
+    - screenshot / upgrade endpoint
+- 下一步收敛：
+  1. 需要一个**真实的 Flowy daemon 地址**（HTTP/WS control surface）
+  2. 或者我们把 Android 端切到“主动连远端 daemon”的模式后，再由 CLI 打那个 daemon
+  3. 在这之前，不能宣称已经具备“完全脱离 adb 的远控闭环”
+
+### 悬浮菜单输入法抬顶 / 输入框失焦问题已修正一轮（2026-04-22 23:xx）
+- 用户反馈：
+  - 输入法弹出时，悬浮菜单像是被往上顶到贴边
+  - 紧接着输入法又消失
+  - 同时配置输入区布局难看、尺寸也不对
+- 本轮根因判断：
+  1. `WorkbenchOverlayService` 每秒 `renderState()`
+  2. `renderState()` 之前会无条件 `renderSection()`
+  3. `renderSection()` 会 `removeAllViews()` 然后重建当前 section
+  4. 所以用户一旦在 `EditText` 中输入，下一次刷新就可能把输入框整个销毁，导致：
+     - 焦点丢失
+     - 输入法关闭
+     - 叠加 window 的 IME 调整表现，体感就像“窗口被顶上去然后键盘消失”
+- 本轮修正：
+  - 新增：
+    - `OverlaySectionRenderKey.kt`
+  - 当前 section 只有在以下情况才重建：
+    - section 切换
+    - 当前 section 的关键状态变化
+  - 对 panel window 增加：
+    - `softInputMode = SOFT_INPUT_ADJUST_NOTHING`
+    - 避免 IME 弹出时把悬浮层整体往上推
+  - 输入区 UI 重排：
+    - daemon 地址 / 端口改成更清晰的字段卡片
+    - host 宽、port 窄
+    - 输入框改成圆角描边、统一高度、黑灰蓝配色
+    - 模式切换改成更像 segmented control 的样式
+- 代码：
+  - `explore/android-daemon-lab/app/src/main/kotlin/com/flowy/explore/ui/workbench/WorkbenchOverlayService.kt`
+  - `explore/android-daemon-lab/app/src/main/kotlin/com/flowy/explore/ui/workbench/WorkbenchViewFactory.kt`
+  - `explore/android-daemon-lab/app/src/main/kotlin/com/flowy/explore/ui/workbench/OverlaySectionRenderKey.kt`
+  - `explore/android-daemon-lab/app/src/test/kotlin/com/flowy/explore/ui/workbench/OverlaySectionRenderKeyTest.kt`
+- 构建证据：
+  - `./scripts/dev/build-android-lab.sh`
+  - 自动 gates：
+    - `check-file-lines`
+    - `blocks-spec-unit`
+    - `blocks-spec-coverage`
+    - `:app:testDebugUnitTest`
+  - build 成功
+  - runtime version：
+    - `0.1.0033 -> 0.1.0034`
+- 当前边界：
+  - **已完成代码级修正 + 编译/单测验证**
+  - **还没有新的真机输入法 smoke 证据**
+
+### APK 自动升级最小闭环已接通（2026-04-22 22:xx）
+- 用户要求：
+  - 安装先由远端 adb 完成
+  - 后续不再依赖手工装包，而是进入自动升级
+- 本轮实现：
+  1. Mac daemon 新增升级接口：
+     - `GET /flowy/upgrade/check`
+     - `GET /flowy/upgrade/apk`
+     - `GET /flowy/upgrade/apk/download`
+  2. daemon 从本地真源读取：
+     - `explore/android-daemon-lab/config/runtime-version.json`
+     - `explore/android-daemon-lab/app/build/outputs/apk/debug/app-debug.apk`
+  3. Android 悬浮菜单“检查升级”已接真实流程：
+     - 检查版本
+     - 拉取 APK manifest
+     - 下载 APK 到 cache
+     - 通过 `FileProvider` 拉起系统安装器
+     - 若系统未允许“安装未知应用”，自动跳到对应设置页
+- Android 侧新增：
+  - `CheckUpgradeBlock.kt`
+  - `DownloadUpgradeApkBlock.kt`
+  - `PromptInstallApkBlock.kt`
+  - `UpgradeCheckFlow.kt`
+  - `VersionComparator.kt`
+  - `res/xml/file_provider_paths.xml`
+- Mac daemon 侧新增：
+  - `services/mac-daemon/src/flows/upgrade_apk_manifest_flow.go`
+  - `services/mac-daemon/src/foundation/version_compare.go`
+- 构建 / 测试证据：
+  - `go test ./...`（`services/mac-daemon`）
+  - `./scripts/dev/build-android-lab.sh`
+  - 自动 gates：
+    - `check-file-lines`
+    - `blocks-spec-unit`
+    - `blocks-spec-coverage`
+    - `:app:testDebugUnitTest`
+  - build 成功
+  - runtime version：
+    - `0.1.0034 -> 0.1.0035`
+- daemon 真机可访问证据：
+  - 本机：
+    - `curl 'http://127.0.0.1:8787/flowy/upgrade/check?currentVersion=0.1.0034'`
+    - 返回 `latestVersion=0.1.0035, available=true`
+  - Tailscale 地址：
+    - `curl 'http://100.86.84.63:8787/flowy/upgrade/check?currentVersion=0.1.0034'`
+    - 返回 `manifestUrl=http://100.86.84.63:8787/flowy/upgrade/apk`
+  - 下载口：
+    - `curl -I http://127.0.0.1:8787/flowy/upgrade/apk/download`
+    - 返回 `200 OK`
+- 设备当前事实：
+  - `adb -s 100.120.173.56:43325 shell dumpsys package com.flowy.explore`
+  - 当前可见：
+    - `versionName=0.1.0033`
+- 当前结论：
+  - **自动升级代码链路已接通**
+  - **daemon 升级接口已可用**
+  - **手机当前版本落后于 daemon 最新包，具备真实升级测试条件**
+- 当前未完成：
+  - 还没有补到“用户在手机上点击检查升级 -> 系统安装器弹出 -> 完成安装”的最终真机证据
+
+### 版本 bump 与实际 APK 版本错位问题已修正（2026-04-22 22:xx）
+- 新发现：
+  - 之前 `build-android-lab.sh` 显示版本已 bump
+  - 但设备实际安装后仍落后一版
+- 根因：
+  1. `app/build.gradle` 在 **Gradle 配置阶段** 就读取了 `runtime-version.json`
+  2. 原先的 `bumpRuntimeVersion` 在 `preBuild` 才执行
+  3. 导致同一次构建里：
+     - JSON 文件先被 bump
+     - 但 APK 仍使用旧的 `versionCode/versionName`
+- 修正：
+  - 版本 bump 前移到：
+    - `scripts/dev/build-android-lab.sh`
+  - Gradle 改为优先读取：
+    - `FLOWY_RUNTIME_VERSION_NAME`
+    - `FLOWY_RUNTIME_BUILD_NUMBER`
+  - `preBuild` 不再依赖旧的 `bumpRuntimeVersion`
+- 验证证据：
+  - `runtime-version.json`：
+    - 当前 `0.1.0037`
+  - `aapt dump badging app-debug.apk`：
+    - `versionCode='37'`
+    - `versionName='0.1.0037'`
+- 当前真机状态：
+  - 已通过远端 adb 安装：
+    - `0.1.0036`
+  - 证据：
+    - `adb -s 100.120.173.56:43325 shell dumpsys package com.flowy.explore`
+    - `versionName=0.1.0036`
+- 当前升级测试条件：
+  - 手机：`0.1.0036`
+  - daemon 最新 APK：`0.1.0037`
+  - `GET http://100.86.84.63:8787/flowy/upgrade/check?currentVersion=0.1.0036`
+    - 返回 `available=true`
+
+### 悬浮菜单压缩 + 输入迁到次级配置页（2026-04-25）
+- 用户新要求：
+  - 悬浮窗展开后，在狭窄空间内尽量提高有效信息密度
+  - 去掉没意义的显示
+  - 字体变小
+  - 不容易输入的内容移到次级菜单
+  - 需要考虑输入法遮挡
+- 本轮实现：
+  1. 状态区压缩
+     - `OverlayStatusFormatter.statusSummary()` 改成紧凑短句：
+       - `连接正常/连接中/连接异常`
+       - `无障碍开/关`
+       - `截图开/关`
+       - `捕获开/关`
+  2. overlay 主菜单压缩
+     - 标题/正文/按钮字号整体下调
+     - section padding / margin 收紧
+     - system section 去掉重复的升级入口（一级菜单已直接有“检查升级”）
+  3. `Agent 自身控制` 收口
+     - 主菜单里不再直接内嵌 host/port 输入框
+     - 只保留：
+       - 模式切换
+       - 当前连接目标摘要
+       - `连接配置` 按钮
+  4. 新增次级配置页
+     - `DaemonConfigActivity.kt`
+     - `activity_daemon_config.xml`
+     - 通过正常 Activity 承载 host / port 输入，绕开 overlay 内联输入法问题
+     - 点击保存后：
+       - 写入 `DevServerOverrideStore`
+       - 自动 stop/start daemon 重连
+- 代码：
+  - `explore/android-daemon-lab/app/src/main/kotlin/com/flowy/explore/ui/workbench/OverlayStatusFormatter.kt`
+  - `explore/android-daemon-lab/app/src/main/kotlin/com/flowy/explore/ui/workbench/WorkbenchViewFactory.kt`
+  - `explore/android-daemon-lab/app/src/main/kotlin/com/flowy/explore/ui/workbench/WorkbenchOverlayService.kt`
+  - `explore/android-daemon-lab/app/src/main/kotlin/com/flowy/explore/ui/DaemonConfigActivity.kt`
+  - `explore/android-daemon-lab/app/src/main/res/layout/activity_daemon_config.xml`
+  - `explore/android-daemon-lab/app/src/main/AndroidManifest.xml`
+  - `explore/android-daemon-lab/app/src/main/res/values/themes.xml`
+- 构建证据：
+  - `./scripts/dev/build-android-lab.sh`
+  - 自动通过：
+    - `check-file-lines`
+    - `blocks-spec-unit`
+    - `blocks-spec-coverage`
+    - `:app:testDebugUnitTest`
+  - 版本：
+    - `0.1.0044`
+- 当前边界：
+  - 代码和回归已通过
+  - 本轮装机时，旧地址 `100.120.173.56:40791` 已经 `connection refused`
+  - 因此还没有拿到这版的最新真机截图证据
+
+### 小红书搜索采集 flow 探索（2026-04-25）
+- 当前目标收敛：
+  - **搜索关键词**
+  - **进入帖子详情**
+  - **采集图片 / 正文 / 评论**
+  - **回到结果列表继续下一个**
+- 当前要求：
+  - 控制面必须走 **Flowy 自己的 command / workflow**，不能再用 adb 充当操作执行面。
+- 当前已知控制面状态：
+  - 已有 command：
+    - `ping`
+    - `fetch-logs`
+    - `capture-screenshot`
+    - `dump-accessibility-tree`
+  - 还缺最小 operate command：
+    - `tap`
+    - `input-text`
+    - `press-key`
+    - `scroll`
+    - `back`
+- 基于已有 XHS feed/search 观测结果，当前建议把页面拆成 6 类：
+  1. `xhs_home_feed_page`
+     - 识别信号：
+       - 顶部 tabs：`关注 / 发现 / 视频`
+       - 右上 `搜索`
+     - 页面目标：
+       - 找到搜索入口
+     - 必要操作：
+       - `tap(search_entry)`
+  2. `xhs_search_input_page`
+     - 识别信号：
+       - 搜索输入框
+       - 搜索按钮 / 键盘搜索键
+       - 历史记录 / 猜你想搜 / 问AI
+     - 页面目标：
+       - 输入关键词
+       - 提交搜索
+     - 必要操作：
+       - `tap(search_input)`
+       - `input-text(keyword)`
+       - `press-key(search)` 或 `tap(search_submit)`
+  3. `xhs_search_result_page`
+     - 识别信号：
+       - 当前关键词可见
+       - 结果列表 scroll container
+       - 帖子卡片 / 作者 / 摘要 / 封面
+     - 页面目标：
+       - 维护“未访问结果卡片队列”
+       - 点击进入下一条帖子
+       - 列表不足时继续滚动
+     - 必要操作：
+       - `tap(result_card)`
+       - `scroll(result_list)`
+  4. `xhs_post_detail_page`
+     - 识别信号：
+       - 帖子正文区域
+       - 图片区域 / 图片计数
+       - 作者信息
+       - 评论入口或评论列表
+     - 页面目标：
+       - 采集正文
+       - 采集图片素材
+       - 采集评论首屏
+       - 继续向下滚动评论并追加采集
+     - 必要操作：
+       - `capture-screenshot`
+       - `dump-accessibility-tree`
+       - `scroll(detail_or_comment_list)`
+  5. `xhs_comment_expanded_page`（若评论区与正文区拆成独立滚动）
+     - 识别信号：
+       - 评论标题 / 评论输入框 / 评论列表
+     - 页面目标：
+       - 分页采集评论
+       - 判定“没有更多评论”
+     - 必要操作：
+       - `scroll(comment_list)`
+       - `back`
+  6. `xhs_blocker_page`
+     - 识别信号：
+       - 登录弹窗
+       - 权限弹窗
+       - 升级弹窗
+       - 开屏广告 / 浮层遮挡
+     - 页面目标：
+       - 先消障，再回主流程
+     - 必要操作：
+       - `tap(close/skip/deny/later)`
+       - 若无法消除，则 `emit-event` 标记人工接管
+- 当前建议的采集结果结构：
+  - `search.keyword`
+  - `result.rank`
+  - `post.title`
+  - `post.author`
+  - `post.body_text`
+  - `post.images[]`
+  - `post.comments[]`
+  - `post.source_page_signature`
+  - `artifacts.screenshot[]`
+  - `artifacts.accessibility[]`
+- 当前判断：
+  - 小红书这条链路不能只停在“搜索并点开”
+  - 真正的 workflow 必须覆盖：
+    - `搜索 -> 结果列表 -> 帖子详情 -> 评论采集 -> 返回结果列表 -> 去重继续`
+- 当前下一步：
+  1. 先把这条链路沉成正式 flow 文档
+  2. 再补 Flowy operate commands（tap / input / press-key / scroll / back）
+  3. 再按 flow 真机执行
+
+### 跨 APP 内容采集骨架抽象（2026-04-25）
+- 用户新增要求：
+  - 不只做小红书单一路径
+  - 要抽象成跨 APP 可复用框架
+  - 同一套骨架里要同时容纳：
+    - 操作行为
+    - 目标锚点
+    - 采集字段
+    - reply / like / comment 等交互入口点
+  - Mac / remote daemon 需要能完整下发操作并拿回结构化结果
+- 当前抽象判断：
+  - 通用层不应该写“这是小红书搜索按钮 / 这是微博评论按钮”
+  - 通用层应该只定义：
+    1. workflow skeleton
+    2. operation set
+    3. target anchor model
+    4. content extraction contract
+    5. daemon command/event contract
+  - APP 差异应该单独落在 `app profile`
+  - 字段差异应该单独落在 `field mapping / extractor spec`
+- 当前准备沉淀为正式真源：
+  - `docs/architecture/app-collection-workflow-abstraction.md`
+
+### operate blocks / control surface 第一轮接线（2026-04-25）
+- 本轮新增 Android operate blocks：
+  - `TapBlock`
+  - `ScrollBlock`
+  - `InputTextBlock`
+  - `BackBlock`
+  - `PressKeyBlock`
+- 本轮新增运行 flow：
+  - `OperationRunFlow`
+- 本轮接线结果：
+  - `WsSessionFlow` 已开始支持 command：
+    - `tap`
+    - `scroll`
+    - `input-text`
+    - `back`
+    - `press-key`
+  - `DaemonStartupFlow.sendHello()` 已把这些 capabilities 发到 Flowy control surface
+  - 当前 `tap/scroll` 走 AccessibilityService `dispatchGesture`
+  - 当前 `input-text` 走 Accessibility editable node + `ACTION_SET_TEXT`
+  - 当前 `back` 走 `GLOBAL_ACTION_BACK`
+  - 当前 `press-key` 第一版只支持：
+    - `back`
+    - `home`
+    - `recents`
+    - `notifications`
+    - `quick_settings`
+- 当前代码门禁证据：
+  - `./scripts/dev/build-android-lab.sh`
+  - 通过：
+    - `check-file-lines`
+    - `blocks-spec-unit`
+    - `blocks-spec-coverage`
+    - `:app:testDebugUnitTest`
+  - 版本：
+    - `0.1.0049`
+- 本轮装机证据：
+  - `adb -s 100.127.23.27:45949 install -r .../app-debug.apk`
+  - 安装成功
+- 当前真实 blocker：
+  - 设备目前处于**密码锁屏界面**
+  - 本地 Mac daemon 已拉起：`:8787`
+  - 但因为手机未解锁，Flowy runtime 还没有进入前台并连回 daemon
+  - 所以还不能继续做“只用 Flowy 控制小红书”的真机链路验证
+- 当前下一步：
+  1. 设备解锁
+  2. 启动 Flowy runtime
+  3. 用 `exp01/clients` 确认新 operate capabilities
+  4. 再只走 Flowy 跑 XHS `deepseek v4`
+
+### 升级交互改为“检查 + 手动升级”（2026-04-25）
+- 用户新要求：
+  - 需要新增**手动升级按钮**
+  - 启动检查升级后先**提示有升级**
+  - 再走真机闭环验证
+- 本轮实现：
+  1. `UpgradeCheckFlow` 改成两段：
+     - `check()`：只检查并缓存 pending upgrade
+     - `installPending()`：手动触发下载 APK + 拉起安装器
+  2. 新增：
+     - `UpgradeStateStore`
+     - 保存 `pendingVersion / pendingManifestUrl`
+  3. UI 接线：
+     - overlay 一级菜单新增 `手动升级`
+     - DevPanel 新增：
+       - `Check Upgrade`
+       - `Manual Upgrade`
+  4. 检查到新版本后的提示：
+     - overlay: `发现新版本 x，请点手动升级`
+     - DevPanel: `发现新版本 x，请点 Manual Upgrade`
+- 构建证据：
+  - `./scripts/dev/build-android-lab.sh`
+  - 通过：
+    - `check-file-lines`
+    - `blocks-spec-unit`
+    - `blocks-spec-coverage`
+    - `:app:testDebugUnitTest`
+  - 当前版本：
+    - daemon / APK 构建产物：`0.1.0050`
+- 真实升级条件证据：
+  - 设备当前已安装：
+    - `0.1.0049`
+  - daemon 升级检查：
+    - `GET /flowy/upgrade/check?currentVersion=0.1.0049`
+    - 返回：
+      - `latestVersion=0.1.0050`
+      - `available=true`
+  - daemon APK manifest：
+    - `GET /flowy/upgrade/apk`
+    - 返回：
+      - `versionName=0.1.0050`
+      - `downloadUrl=/flowy/upgrade/apk/download`
+- 当前 blocker：
+  - 真机当前仍停在系统锁屏 / 密码输入界面
+  - 所以还不能完成：
+    - 打开 Flowy
+    - 点击 `Check Upgrade`
+    - 提示升级
+    - 点击 `Manual Upgrade`
+    - 拉起安装器
+- 当前下一步：
+  1. 解锁手机
+  2. 打开 Flowy DevPanel
+  3. 点 `Check Upgrade`
+  4. 看到升级提示
+  5. 点 `Manual Upgrade`
+  6. 验证系统安装器弹出
+
+### 升级闭环真机修复与验证（2026-04-25）
+- 本轮先抓到的真根因 1：
+  - `CHECK UPGRADE` 失败
+  - `daemon.log` 证据：
+    - `upgrade_check_failed`
+    - `CLEARTEXT communication to 100.86.84.63 not permitted by network security policy`
+- 对应修复：
+  - `app/src/main/res/xml/network_security_config.xml`
+  - 从只放行 `127.0.0.1 / localhost` 改为 dev-lab 全局 `base-config cleartextTrafficPermitted=true`
+- 修复后真机证据：
+  - 当前已装版本：`0.1.0052`
+  - daemon 最新版本：`0.1.0053`
+  - 点击 `CHECK UPGRADE` 后：
+    - `upgrade_available`
+    - `pending_version=0.1.0053`
+    - `pending_manifest_url=http://100.86.84.63:8787/flowy/upgrade/apk`
+
+- 本轮再抓到的真根因 2：
+  - `MANUAL UPGRADE` 第二步失败
+  - `daemon.log` 证据：
+    - `upgrade_install_failed`
+    - `Name must not be empty`
+- 对应修复：
+  - `app/src/main/res/xml/file_provider_paths.xml`
+  - `FileProvider` path 配置从 `android:name / android:path` 改成无 namespace 的 `name / path`
+- 根因判断：
+  - AndroidX `FileProvider` 解析 `<paths>` 时读取的是非 namespace 属性
+  - 所以会把 `android:name` 读成空字符串，导致 `Name must not be empty`
+
+- 真机安装权限链路证据：
+  - 首次点 `MANUAL UPGRADE` 会进入：
+    - 系统页：`安装未知应用`
+    - 开关：`允许从此来源安装应用 = 关闭`
+  - 手动打开该开关后再次执行
+
+- 真机最终闭环证据：
+  - 安装前设备版本：`0.1.0054`
+  - daemon 最新版本：`0.1.0055`
+  - `CHECK UPGRADE` 后：
+    - `upgrade_available 0.1.0055`
+  - `MANUAL UPGRADE` 后：
+    - `upgrade_download_started downloading 0.1.0055`
+    - `upgrade_install_prompted installer-opened`
+    - `flowy_upgrade_state` 被清空
+  - 最终设备包信息：
+    - `versionCode=55`
+    - `versionName=0.1.0055`
+
+- 本机型额外现象：
+  - `installer-opened` 后界面不一定停留在标准安装确认页
+  - 当前 Oplus ROM 上会回桌面或切走当前界面
+  - 但安装仍然已经完成
+- 当前结论：
+  - 升级闭环的验收不能只看“安装器 UI 是否停留”
+  - 必须以：
+    1. `daemon.log` 的 `upgrade_install_prompted`
+    2. `flowy_upgrade_state` 是否清空
+    3. `dumpsys package` 最终版本号
+    作为真正确认依据
+
+### 调试证据路径纠偏（2026-04-26）
+- 用户新增硬规则：
+  - 本项目里**截屏证据不能再用 adb**
+  - 页面探索、业务流程、调试截图都必须优先走 **Flowy 自己的 screenshot 能力**
+- 本轮反思：
+  - 我在业务链路探索时仍用了 `adb screencap` 做页面判断，这和当前项目目标不一致
+  - 既然 Flowy 已有 `capture-screenshot` 能力，后续要先把 `Projection: ready` 补齐，再继续页面探索
+- 当前后续执行约束：
+  1. 页面/流程证据截图只认 Flowy screenshot artifact
+  2. `adb` 最多保留给安装、设备连通、bootstrap 类 plumbing
+  3. 业务页面探索的“观察 → 定位 → 证据”必须切回 Flowy command surface
+
+### DevPanel 自动启动 daemon 真机验证（2026-04-26）
+- 变更：
+  - `explore/android-daemon-lab/app/src/main/kotlin/com/flowy/explore/ui/DevPanelActivity.kt`
+  - 在 `onCreate` 内新增 `ensureDaemonRunning()`
+  - 当前规则：打开 DevPanel 时，若 daemon 状态为 `idle/stopped`，自动执行 `StartDaemonBlock`
+- 构建证据：
+  - `./scripts/dev/build-android-lab.sh`
+  - build + tests 通过
+  - 版本从 `0.1.0057` bump 到 `0.1.0058`
+- 真机验证步骤：
+  1. 安装 `0.1.0058`
+  2. `am force-stop com.flowy.explore`
+  3. 仅拉起 `com.flowy.explore/.ui.DevPanelActivity`
+  4. 轮询 `http://127.0.0.1:8787/exp01/clients`
+- 真机结果：
+  - `poll 2` 仍为空
+  - `poll 3` 开始出现 `client_hello`
+  - `runtimeVersion = 0.1.0058`
+- 当前结论：
+  - “打开 Flowy 后 daemon 自动启动并回连”已闭环成立
+
+### 自动启动后的 accessibility 能力异常（2026-04-26）
+- 现象：
+  - `0.1.0058` 自动回连后，`client_hello.capabilities` 仅剩：
+    - `ping`
+    - `fetch-logs`
+    - `capture-screenshot`
+  - 缺少：
+    - `dump-accessibility-tree`
+    - `tap`
+    - `scroll`
+    - `input-text`
+    - `back`
+    - `press-key`
+- 代码观察：
+  - `DaemonStartupFlow.sendHello()` 会按 `AccessibilityStatusReader.isEnabled()` 一次性决定是否上报 accessibility/operation capabilities
+- 当前设备证据：
+  - `adb shell settings get secure enabled_accessibility_services` 返回 `null`
+  - `adb shell dumpsys accessibility` 未见 Flowy service 处于 bound/enabled 生效状态
+- 当前判断：
+  - 新版本安装/重启后，当前机型上的 accessibility 授权状态可能丢失或未重新绑定
+  - 这与 “daemon 自动启动” 是两个独立问题
+- 下一步：
+  1. 先恢复 Flowy accessibility 权限
+  2. 再验证完整 capabilities 是否恢复
+  3. 如果恢复，则进一步判断是否需要在启动后补发一次 `client_hello` / capability refresh
+
+### accessibility 能力刷新真因与闭环（2026-04-26）
+- 真因 1（设备/系统行为）：
+  - 我在验证自动启动时用了：
+    - `adb shell am force-stop com.flowy.explore`
+  - 当前 Oplus / Android 16 真机上，这会把：
+    - `enabled_accessibility_services`
+    - `accessibility_enabled`
+    清空/关闭
+  - 证据：
+    - `settings get secure enabled_accessibility_services -> null`
+    - `settings get secure accessibility_enabled -> 0`
+    - logcat 出现：
+      - `removeEnableService diffService=[ComponentInfo{com.flowy.explore/com.flowy.explore.runtime.FlowyAccessibilityService}]`
+- 真因 2（控制面同步缺口）：
+  - `client_hello.capabilities` 只在 ws 建连时发送一次
+  - 如果 Accessibility availability 变化，`/exp01/clients` 不会自动刷新
+- 对应修复：
+  1. Android：
+     - `FlowyAccessibilityService` 在 `onServiceConnected/onDestroy` 时通知 availability change
+     - `DaemonStartupFlow` 收到 availability 变化后补发 `client_hello`
+  2. Mac daemon：
+     - `RunClientSession` 支持同一 websocket 会话里的后续 `client_hello`
+     - `AppState` 增加 `UpdateClientHello`
+  3. build gate：
+     - `scripts/dev/build-android-lab.sh` 新增 `mac-daemon-go-test`
+- 构建/测试证据：
+  - `./scripts/dev/build-android-lab.sh`
+  - python gates 通过
+  - `go test ./...`（`services/mac-daemon`）通过
+  - 版本从 `0.1.0058` bump 到 `0.1.0059`
+- 真机最终闭环：
+  1. 安装 `0.1.0059`
+  2. 恢复 accessibility
+  3. 打开 Flowy，自动启动 daemon
+  4. `/exp01/clients` 返回完整能力集：
+     - `ping`
+     - `fetch-logs`
+     - `capture-screenshot`
+     - `dump-accessibility-tree`
+     - `tap`
+     - `scroll`
+     - `input-text`
+     - `back`
+     - `press-key`
+  5. `dump-accessibility-tree capability-refresh-final-proof` 返回 `status=ok`
+- 当前结论：
+  - “打开 Flowy 自动起 daemon” 已闭环
+  - “控制面能力集与 Accessibility 实际能力保持同步” 已闭环
+  - 后续 accessibility 验证流程里不能再把 `force-stop` 当成普通冷启动手段

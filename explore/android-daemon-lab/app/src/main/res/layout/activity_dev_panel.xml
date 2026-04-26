@@ -87,6 +87,20 @@
       android:text="Grant Overlay Permission" />
 
     <Button
+      android:id="@+id/buttonCheckUpgrade"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="8dp"
+      android:text="Check Upgrade" />
+
+    <Button
+      android:id="@+id/buttonManualUpgrade"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="8dp"
+      android:text="Manual Upgrade" />
+
+    <Button
       android:id="@+id/buttonOpenWorkbench"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"

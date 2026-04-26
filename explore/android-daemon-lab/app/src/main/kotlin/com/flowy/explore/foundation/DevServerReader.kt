@@ -8,10 +8,15 @@ data class DevServerConfig(
   val port: Int,
   val wsPath: String,
   val artifactPath: String,
+  val upgradeCheckPath: String,
 ) {
+  fun httpBaseUrl(): String = "http://$host:$port"
+
   fun wsUrl(): String = "ws://$host:$port$wsPath"
 
-  fun artifactUrl(): String = "http://$host:$port$artifactPath"
+  fun artifactUrl(): String = "${httpBaseUrl()}$artifactPath"
+
+  fun upgradeCheckUrl(): String = "${httpBaseUrl()}$upgradeCheckPath"
 }
 
 class DevServerReader(private val context: Context) {
@@ -25,6 +30,7 @@ class DevServerReader(private val context: Context) {
       port = overrideStore.portOverride() ?: json.getInt("port"),
       wsPath = json.getString("wsPath"),
       artifactPath = json.optString("artifactPath", "/exp01/artifacts"),
+      upgradeCheckPath = json.optString("upgradeCheckPath", "/flowy/upgrade/check"),
     )
   }
 }

@@ -6,8 +6,8 @@ apply plugin: 'org.jetbrains.kotlin.android'
 
 def runtimeVersionFile = rootProject.file('config/runtime-version.json')
 def versionConfig = new JsonSlurper().parse(runtimeVersionFile)
-def versionNameValue = versionConfig.versionName
-def buildNumberValue = versionConfig.buildNumber as int
+def versionNameValue = System.getenv('FLOWY_RUNTIME_VERSION_NAME') ?: versionConfig.versionName
+def buildNumberValue = (System.getenv('FLOWY_RUNTIME_BUILD_NUMBER') ?: String.valueOf(versionConfig.buildNumber)) as int
 
 android {
     namespace 'com.flowy.explore'
@@ -59,6 +59,7 @@ dependencies {
     implementation 'com.google.android.material:material:1.11.0'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
 }
 
 def readVersionConfig = {
@@ -91,6 +92,6 @@ tasks.register('checkFileLines') {
 }
 
 afterEvaluate {
-    tasks.named('preBuild') { dependsOn 'bumpRuntimeVersion', 'checkFileLines' }
+    tasks.named('preBuild') { dependsOn 'checkFileLines' }
     tasks.named('assembleDebug') { dependsOn 'testDebugUnitTest' }
 }

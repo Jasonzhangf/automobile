@@ -16,12 +16,13 @@ class OverlayStatusFormatterTest {
   }
 
   @Test
-  fun statusSummary_includesModeAndProjection() {
+  fun statusSummary_compactsSignals() {
     val summary = OverlayStatusFormatter.statusSummary(
-      snapshot(agentMode = AgentMode.ACTIVE, projectionStatus = "ready"),
+      snapshot(connectionStatus = "connected", projectionStatus = "ready", captureModeEnabled = true),
     )
-    assertEquals(true, summary.contains("mode=active"))
-    assertEquals(true, summary.contains("projection=ready"))
+    assertEquals(true, summary.contains("连接正常"))
+    assertEquals(true, summary.contains("截图开"))
+    assertEquals(true, summary.contains("捕获开"))
   }
 
   private fun snapshot(

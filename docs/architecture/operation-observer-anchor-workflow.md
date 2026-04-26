@@ -259,6 +259,118 @@ observe
 
 ## 三、模块边界
 
+围绕刚才已经真机打通的最小闭环，基座先固定成下面三层：
+
+```text
+foundation
+-> leaf blocks
+-> skeleton flows
+```
+
+### 1. foundation：纯工具 / 共享状态 / 真值构造
+
+这一层不直接对外暴露“业务动作”，只负责把底层真值和通用工具准备好。
+
+第一批固定模块：
+
+- `DisplayInfoReader`
+  - 读取屏幕宽高、dpi、rotation
+- `PageContextBuilder`
+  - 统一产出 `page-context.json`
+- `AccessibilitySnapshotStore`
+  - 持有最近一次前台 Accessibility 快照
+- `MediaProjectionSessionHolder`
+  - 持有截图授权与长驻 projection session
+- `AccessibilityTargeting`
+  - 目标筛选、bounds 计算、点击中心点推导
+- `VersionReader / DevServerReader / UpgradeStateStore`
+  - 版本、daemon 地址、升级状态真源
+
+规则：
+
+- foundation 可以被 blocks 复用
+- foundation 不直接发 WS 命令结果
+- foundation 不直接推进 workflow
+
+### 2. leaf blocks：真实原子能力
+
+这一层就是“手机上已经确认能做”的最小能力块。
+
+当前第一批叶子 block 固定为：
+
+#### Observe 类
+- `CaptureScreenshotBlock`
+- `DumpAccessibilityTreeBlock`
+- `FetchLogsBlock`
+
+#### Operate 类
+- `TapBlock`
+- `ScrollBlock`
+- `InputTextBlock`
+- `PressKeyBlock`
+- `BackBlock`
+
+#### Runtime / Transport 类
+- `UploadArtifactBlock`
+- `AppendLogBlock`
+- `CheckUpgradeBlock`
+- `DownloadUpgradeApkBlock`
+- `PromptInstallApkBlock`
+
+规则：
+
+- leaf block 只完成一个能力闭环
+- 输入输出保持稳定 result 形状
+- 一个 block 只对应一个真能力，不混多个动作
+
+### 3. skeleton flows：基座骨架编排
+
+这一层不新增底层能力，只编排 leaf blocks。
+
+第一批 skeleton flow：
+
+- `DaemonStartupFlow`
+  - 前台 service / ws 连接 / hello / reconnect
+- `WsSessionFlow`
+  - 命令收发与协议分发
+- `OperationRunFlow`
+  - `tap / scroll / input-text / press-key / back` 统一执行入口
+- `ScreenshotCaptureFlow`
+  - `capture-screenshot -> upload artifacts -> response`
+- `AccessibilityDumpFlow`
+  - `dump-accessibility-tree -> upload artifacts -> response`
+- `UpgradeCheckFlow`
+  - 检查升级 / 下载安装 / 安装提示
+
+规则：
+
+- flow 不复制 block 能力
+- flow 只做“拿哪个 block + 何时调用 + 如何组 response/event”
+- flow 是后续 workflow engine 的现阶段过渡层
+
+### 4. 下一步要从 leaf blocks 升到 workflow skeleton 的能力
+
+基于当前已经验证的能力，后续正式 workflow 基座固定抽象成：
+
+```text
+observe-page
+  -> capture-screenshot / dump-accessibility-tree / page-context
+filter-targets
+  -> clickable / scrollable / input / image / card
+evaluate-anchor
+  -> pre / post constraints
+execute-operation
+  -> tap / scroll / input / press-key / back
+emit-event
+  -> page.observed / operation.finished / workflow.step.*
+```
+
+也就是说：
+
+- **当前已有的真实 block 不推倒重来**
+- 而是把它们作为 workflow skeleton 的叶子执行单元
+- 这样后面接小红书/微博/系统设置时，只换 filter / anchor / field mapping，不换底层能力
+
 按你要求，正式基座建议拆成 4 个主模块。
 
 ### 1. `operation/`

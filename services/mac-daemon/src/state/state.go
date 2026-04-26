@@ -43,6 +43,16 @@ func (a *AppState) RegisterClient(session *ClientSession) {
 	a.clients[session.Hello.DeviceID] = session
 }
 
+func (a *AppState) UpdateClientHello(deviceID string, hello proto.ClientHello) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	session, ok := a.clients[deviceID]
+	if !ok {
+		return
+	}
+	session.Hello = hello
+}
+
 func (a *AppState) RemoveClient(deviceID string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()

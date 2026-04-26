@@ -2,12 +2,19 @@ package com.flowy.explore.flows
 
 import android.content.Context
 import com.flowy.explore.blocks.AppendLogBlock
+import com.flowy.explore.blocks.BackBlock
 import com.flowy.explore.blocks.CaptureScreenshotBlock
 import com.flowy.explore.blocks.ConnectWsBlock
 import com.flowy.explore.blocks.DumpAccessibilityTreeBlock
+import com.flowy.explore.blocks.ExecuteOperationBlock
 import com.flowy.explore.blocks.HandleFetchLogsBlock
 import com.flowy.explore.blocks.HandlePingBlock
+import com.flowy.explore.blocks.InputTextBlock
+import com.flowy.explore.blocks.ObservePageBlock
+import com.flowy.explore.blocks.PressKeyBlock
 import com.flowy.explore.blocks.ReadLogTailBlock
+import com.flowy.explore.blocks.ScrollBlock
+import com.flowy.explore.blocks.TapBlock
 import com.flowy.explore.blocks.UploadArtifactBlock
 import com.flowy.explore.foundation.AccessibilityStatusReader
 import com.flowy.explore.foundation.DevServerReader
@@ -15,6 +22,7 @@ import com.flowy.explore.foundation.DisplayInfoReader
 import com.flowy.explore.foundation.TimeHelper
 import com.flowy.explore.foundation.VersionReader
 import com.flowy.explore.foundation.WsClientAdapter
+import com.flowy.explore.runtime.FlowyAccessibilityService
 import com.flowy.explore.runtime.LocalLogStore
 import org.json.JSONArray
 import org.json.JSONObject
@@ -34,6 +42,7 @@ class DaemonStartupFlow(
     lateinit var fetchLogsFlow: FetchLogsFlow
     lateinit var screenshotCaptureFlow: ScreenshotCaptureFlow
     lateinit var accessibilityDumpFlow: AccessibilityDumpFlow
+    lateinit var operationRunFlow: OperationRunFlow
     wsClientAdapter = WsClientAdapter(
       onOpen = {
         reconnectFlow.reset()
@@ -42,7 +51,15 @@ class DaemonStartupFlow(
         appendLogBlock.info("ws_connect_succeeded", "connected to mac daemon")
         sendHello()
       },
-      onMessage = { message -> wsSessionFlow(pingFlow, fetchLogsFlow, screenshotCaptureFlow, accessibilityDumpFlow).onMessage(message) },
+      onMessage = { message ->
+        wsSessionFlow(
+          pingFlow,
+          fetchLogsFlow,
+          screenshotCaptureFlow,
+          accessibilityDumpFlow,
+          operationRunFlow,
+        ).onMessage(message)
+      },
       onClosing = {
         onStatus("closing")
         appendLogBlock.info("ws_reconnect_scheduled", "websocket closing; scheduling reconnect")
@@ -56,10 +73,15 @@ class DaemonStartupFlow(
     )
     pingFlow = PingResponseFlow(appendLogBlock, HandlePingBlock(versionReader), wsClientAdapter)
     fetchLogsFlow = FetchLogsFlow(appendLogBlock, HandleFetchLogsBlock(versionReader, ReadLogTailBlock(logStore)), wsClientAdapter)
+    val observePageBlock = ObservePageBlock(
+      displayInfoReader = DisplayInfoReader(context),
+      dumpAccessibilityTreeBlock = DumpAccessibilityTreeBlock(),
+      captureScreenshotBlock = CaptureScreenshotBlock(),
+    )
     screenshotCaptureFlow = ScreenshotCaptureFlow(
       appendLogBlock = appendLogBlock,
       versionReader = versionReader,
-      captureScreenshotBlock = CaptureScreenshotBlock(context),
+      observePageBlock = observePageBlock,
       uploadArtifactBlock = UploadArtifactBlock(DevServerReader(context).read()),
       wsClientAdapter = wsClientAdapter,
     )
@@ -67,15 +89,28 @@ class DaemonStartupFlow(
       appendLogBlock = appendLogBlock,
       versionReader = versionReader,
       accessibilityStatusReader = accessibilityStatusReader,
-      dumpAccessibilityTreeBlock = DumpAccessibilityTreeBlock(),
-      displayInfoReader = DisplayInfoReader(context),
+      observePageBlock = observePageBlock,
       uploadArtifactBlock = UploadArtifactBlock(DevServerReader(context).read()),
       wsClientAdapter = wsClientAdapter,
     )
+    operationRunFlow = OperationRunFlow(
+      appendLogBlock = appendLogBlock,
+      versionReader = versionReader,
+      wsClientAdapter = wsClientAdapter,
+      executeOperationBlock = ExecuteOperationBlock(
+        tapBlock = TapBlock(),
+        scrollBlock = ScrollBlock(),
+        inputTextBlock = InputTextBlock(),
+        backBlock = BackBlock(),
+        pressKeyBlock = PressKeyBlock(),
+      ),
+    )
+    FlowyAccessibilityService.setAvailabilityListener { sendHello() }
     connect(onStatus)
   }
 
   fun close() {
+    FlowyAccessibilityService.setAvailabilityListener(null)
     if (::wsClientAdapter.isInitialized) wsClientAdapter.close()
   }
 
@@ -91,8 +126,16 @@ class DaemonStartupFlow(
     fetchLogsFlow: FetchLogsFlow,
     screenshotCaptureFlow: ScreenshotCaptureFlow,
     accessibilityDumpFlow: AccessibilityDumpFlow,
+    operationRunFlow: OperationRunFlow,
   ): WsSessionFlow {
-    return WsSessionFlow(appendLogBlock, pingFlow, fetchLogsFlow, screenshotCaptureFlow, accessibilityDumpFlow)
+    return WsSessionFlow(
+      appendLogBlock,
+      pingFlow,
+      fetchLogsFlow,
+      screenshotCaptureFlow,
+      accessibilityDumpFlow,
+      operationRunFlow,
+    )
   }
 
   private fun sendHello() {
@@ -108,6 +151,11 @@ class DaemonStartupFlow(
         put("capture-screenshot")
         if (accessibilityStatusReader.isEnabled()) {
           put("dump-accessibility-tree")
+          put("tap")
+          put("scroll")
+          put("input-text")
+          put("back")
+          put("press-key")
         }
       })
       put("sentAt", TimeHelper.now())

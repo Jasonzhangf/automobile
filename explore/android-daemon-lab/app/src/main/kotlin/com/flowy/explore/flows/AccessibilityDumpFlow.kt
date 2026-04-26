@@ -2,11 +2,9 @@ package com.flowy.explore.flows
 
 import android.os.Build
 import com.flowy.explore.blocks.AppendLogBlock
-import com.flowy.explore.blocks.DumpAccessibilityTreeBlock
+import com.flowy.explore.blocks.ObservePageBlock
 import com.flowy.explore.blocks.UploadArtifactBlock
 import com.flowy.explore.foundation.AccessibilityStatusReader
-import com.flowy.explore.foundation.DisplayInfoReader
-import com.flowy.explore.foundation.PageContextBuilder
 import com.flowy.explore.foundation.TimeHelper
 import com.flowy.explore.foundation.VersionReader
 import com.flowy.explore.foundation.WsClientAdapter
@@ -17,8 +15,7 @@ class AccessibilityDumpFlow(
   private val appendLogBlock: AppendLogBlock,
   private val versionReader: VersionReader,
   private val accessibilityStatusReader: AccessibilityStatusReader,
-  private val dumpAccessibilityTreeBlock: DumpAccessibilityTreeBlock,
-  private val displayInfoReader: DisplayInfoReader,
+  private val observePageBlock: ObservePageBlock,
   private val uploadArtifactBlock: UploadArtifactBlock,
   private val wsClientAdapter: WsClientAdapter,
 ) {
@@ -27,19 +24,16 @@ class AccessibilityDumpFlow(
     appendLogBlock.info("accessibility_dump_started", "dumping accessibility tree", requestId, runId, command)
     try {
       if (!accessibilityStatusReader.isEnabled()) error("ACCESSIBILITY_SERVICE_DISABLED")
-      val snapshot = dumpAccessibilityTreeBlock.run()
-      val pageContext = PageContextBuilder.build(
+      val observedPage = observePageBlock.observe(
         requestId = requestId,
         runId = runId,
         command = command,
-        capturedAt = snapshot.capturedAt,
-        displayInfo = displayInfoReader.read(),
-        projectionReady = false,
-        accessibilitySnapshot = snapshot,
+        observerSpec = JSONObject().put("requireAccessibility", true),
       )
+      val snapshot = observedPage.accessibilitySnapshot ?: error("ACCESSIBILITY_ROOT_UNAVAILABLE")
       val artifacts = JSONArray().apply {
         put(upload(requestId, runId, command, "accessibility-raw", "accessibility-raw.json", snapshot.rawJson.toByteArray()))
-        put(upload(requestId, runId, command, "page-context", "page-context.json", pageContext.toString(2).toByteArray()))
+        put(upload(requestId, runId, command, "page-context", "page-context.json", observedPage.pageContext.toString(2).toByteArray()))
       }
       appendLogBlock.info("accessibility_dump_finished", "dumped accessibility tree", requestId, runId, command)
       wsClientAdapter.send(successResponse(requestId, runId, command, startedAt, artifacts).toString())

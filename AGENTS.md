@@ -55,6 +55,7 @@
 - `./docs/architecture/android-overlay-ui-spec.md`：手机端悬浮球与展开菜单 UI 真源。
 - `./docs/architecture/android-overlay-workbench-spec.md`：第一版悬浮球开发工作台骨架真源。
 - `./docs/architecture/operation-observer-anchor-workflow.md`：正式基座的执行模型真源。
+- `./docs/architecture/app-collection-workflow-abstraction.md`：跨 APP 内容采集 workflow 抽象真源。
 - `./docs/architecture/blocks-interface-spec.md`：blocks 最小接口真源。
 - `./docs/architecture/workspace-structure.md`：workspace 目录结构与模块落位真源。
 - `./docs/architecture/development-workflow.md`：模块开发、测试、经验沉淀流程真源。

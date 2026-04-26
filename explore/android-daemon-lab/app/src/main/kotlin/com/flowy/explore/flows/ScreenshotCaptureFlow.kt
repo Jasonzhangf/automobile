@@ -2,20 +2,18 @@ package com.flowy.explore.flows
 
 import android.os.Build
 import com.flowy.explore.blocks.AppendLogBlock
-import com.flowy.explore.blocks.CaptureScreenshotBlock
+import com.flowy.explore.blocks.ObservePageBlock
 import com.flowy.explore.blocks.UploadArtifactBlock
-import com.flowy.explore.foundation.PageContextBuilder
 import com.flowy.explore.foundation.TimeHelper
 import com.flowy.explore.foundation.VersionReader
 import com.flowy.explore.foundation.WsClientAdapter
-import com.flowy.explore.runtime.AccessibilitySnapshotStore
 import org.json.JSONArray
 import org.json.JSONObject
 
 class ScreenshotCaptureFlow(
   private val appendLogBlock: AppendLogBlock,
   private val versionReader: VersionReader,
-  private val captureScreenshotBlock: CaptureScreenshotBlock,
+  private val observePageBlock: ObservePageBlock,
   private val uploadArtifactBlock: UploadArtifactBlock,
   private val wsClientAdapter: WsClientAdapter,
 ) {
@@ -23,8 +21,13 @@ class ScreenshotCaptureFlow(
     val startedAt = TimeHelper.now()
     appendLogBlock.info("screenshot_capture_started", "capturing screenshot", requestId, runId, command)
     try {
-      val capture = captureScreenshotBlock.run()
-      val snapshot = AccessibilitySnapshotStore.current()
+      val observedPage = observePageBlock.observe(
+        requestId = requestId,
+        runId = runId,
+        command = command,
+        observerSpec = JSONObject().put("requireScreenshot", true),
+      )
+      val capture = observedPage.screenshotCapture ?: error("SCREENSHOT_CAPTURE_FAILED")
       val screenshotMeta = JSONObject().apply {
         put("requestId", requestId)
         put("runId", runId)
@@ -35,19 +38,10 @@ class ScreenshotCaptureFlow(
         put("captureMethod", "media-projection")
         put("displayId", capture.displayInfo.displayId)
       }
-      val pageContext = PageContextBuilder.build(
-        requestId = requestId,
-        runId = runId,
-        command = command,
-        capturedAt = startedAt,
-        displayInfo = capture.displayInfo,
-        projectionReady = true,
-        accessibilitySnapshot = snapshot,
-      )
       val artifacts = JSONArray().apply {
         put(upload(requestId, runId, command, "screenshot", "screenshot.png", "image/png", capture.pngBytes))
         put(upload(requestId, runId, command, "screenshot-meta", "screenshot-meta.json", "application/json", screenshotMeta.toString(2).toByteArray()))
-        put(upload(requestId, runId, command, "page-context", "page-context.json", "application/json", pageContext.toString(2).toByteArray()))
+        put(upload(requestId, runId, command, "page-context", "page-context.json", "application/json", observedPage.pageContext.toString(2).toByteArray()))
       }
       appendLogBlock.info("screenshot_capture_finished", "captured screenshot", requestId, runId, command)
       wsClientAdapter.send(successResponse(requestId, runId, command, startedAt, artifacts).toString())

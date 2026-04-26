@@ -106,3 +106,19 @@ type ArtifactUploadResponse struct {
 	RunID           string             `json:"runId"`
 	Stored          ArtifactDescriptor `json:"stored"`
 }
+
+type UpgradeCheckResponse struct {
+	ProtocolVersion string `json:"protocolVersion"`
+	CurrentVersion  string `json:"currentVersion"`
+	LatestVersion   string `json:"latestVersion"`
+	Available       bool   `json:"available"`
+	ManifestURL     string `json:"manifestUrl"`
+}
+
+type UpgradeApkManifest struct {
+	ProtocolVersion string `json:"protocolVersion"`
+	VersionName     string `json:"versionName"`
+	FileName        string `json:"fileName"`
+	DownloadURL     string `json:"downloadUrl"`
+	SizeBytes       int64  `json:"sizeBytes"`
+}

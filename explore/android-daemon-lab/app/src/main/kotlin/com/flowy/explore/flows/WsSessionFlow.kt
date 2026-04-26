@@ -9,18 +9,21 @@ class WsSessionFlow(
   private val fetchLogsFlow: FetchLogsFlow,
   private val screenshotCaptureFlow: ScreenshotCaptureFlow,
   private val accessibilityDumpFlow: AccessibilityDumpFlow,
+  private val operationRunFlow: OperationRunFlow,
 ) {
   fun onMessage(text: String) {
     val json = JSONObject(text)
     val requestId = json.getString("requestId")
     val runId = json.getString("runId")
     val command = json.getString("command")
+    val payload = json.optJSONObject("payload") ?: JSONObject()
     appendLogBlock.info("command_received", "received $command", requestId, runId, command)
     when (command) {
       "ping" -> pingResponseFlow.run(requestId, runId, command)
       "fetch-logs" -> fetchLogsFlow.run(requestId, runId, command, json.optJSONObject("payload")?.optInt("tail", 200) ?: 200)
       "capture-screenshot" -> screenshotCaptureFlow.run(requestId, runId, command)
       "dump-accessibility-tree" -> accessibilityDumpFlow.run(requestId, runId, command)
+      "tap", "scroll", "input-text", "back", "press-key" -> operationRunFlow.run(requestId, runId, command, payload)
       else -> appendLogBlock.error("command_failed", "unsupported command $command", requestId, runId, command)
     }
   }

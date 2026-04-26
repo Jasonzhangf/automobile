@@ -112,6 +112,19 @@ Transport preference in dev:
 2. local-LAN WebSocket / HTTP when direct ADB transport is inconvenient
 3. file export fallback only for manual inspection, not as the main loop
 
+Screenshot evidence rule:
+
+- Once Flowy screenshot capture is available in this repo, use **Flowy-originated screenshots** as the default evidence path for debugging and business-flow exploration.
+- Do **not** use `adb screencap` as routine evidence for page-state / workflow verification; reserve adb only for installation/bootstrap-class device plumbing when no Flowy screenshot evidence is involved.
+- On current Oplus / Android 16 real devices, do **not** treat `am force-stop com.flowy.explore` as a harmless restart during accessibility verification; it can clear Flowy's accessibility enabled state and invalidate capability conclusions.
+- When Accessibility availability changes, verify both the **real capability** and the **control-plane hello/capabilities projection**; stale `/exp01/clients` data is a separate bug class from capability failure itself.
+- On Android 14+/Oplus devices, MediaProjection session setup is order-sensitive: keep it as **grant -> foreground service promote (`mediaProjection`) -> `registerCallback()` -> `createVirtualDisplay()` -> reuse single session**. If the panel only says `not-ready`, inspect logcat first; do not assume permission was denied.
+
+Upgrade verification reminder:
+
+- For Android dev-lab talking to a remote daemon over `ws://` / `http://`, verify cleartext policy on the real phone first; localhost-only allowlists are not enough once the host moves to LAN/Tailscale.
+- For APK in-app upgrade, verify the final installed `versionName/versionCode`; some OEM ROMs may return to Home immediately after the installer intent instead of leaving the installer UI on screen.
+
 ## Recognition Workflow
 
 When implementing page recognition, use this order:

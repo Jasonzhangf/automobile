@@ -38,6 +38,16 @@ func RunClientSession(app *state.AppState, conn *websocket.Conn) {
 		if json.Unmarshal(raw, &envelope) != nil {
 			continue
 		}
+		if helloRaw, ok := envelope["type"]; ok {
+			var messageType string
+			if json.Unmarshal(helloRaw, &messageType) == nil && messageType == "client_hello" {
+				nextHello, decodeErr := foundation.Decode[proto.ClientHello](raw)
+				if decodeErr == nil && nextHello.ProtocolVersion == "exp01" && nextHello.DeviceID == hello.DeviceID {
+					app.UpdateClientHello(hello.DeviceID, nextHello)
+				}
+				continue
+			}
+		}
 		if _, ok := envelope["requestId"]; !ok {
 			continue
 		}

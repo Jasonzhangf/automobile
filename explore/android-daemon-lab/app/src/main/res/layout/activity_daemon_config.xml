@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:background="@android:color/transparent"
+  android:padding="12dp">
+
+  <LinearLayout
+    android:layout_width="304dp"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_daemon_config_panel"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:text="连接配置"
+      android:textColor="#F5F7FA"
+      android:textSize="18sp"
+      android:textStyle="bold" />
+
+    <TextView
+      android:id="@+id/textConfigCurrent"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="6dp"
+      android:background="@drawable/bg_daemon_config_field"
+      android:paddingHorizontal="12dp"
+      android:paddingVertical="10dp"
+      android:textColor="#AFC0CB"
+      android:textSize="12sp" />
+
+    <TextView
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="16dp"
+      android:text="Daemon 地址"
+      android:textColor="#D8E2E8"
+      android:textSize="12sp" />
+
+    <EditText
+      android:id="@+id/inputConfigHost"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="6dp"
+      android:background="@drawable/bg_daemon_config_field"
+      android:hint="100.86.84.63"
+      android:imeOptions="actionNext"
+      android:inputType="textUri"
+      android:minHeight="44dp"
+      android:paddingHorizontal="12dp"
+      android:textColor="#F4F7FA"
+      android:textColorHint="#6F8794"
+      android:textSize="13sp" />
+
+    <TextView
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="12dp"
+      android:text="端口"
+      android:textColor="#D8E2E8"
+      android:textSize="12sp" />
+
+    <EditText
+      android:id="@+id/inputConfigPort"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="6dp"
+      android:background="@drawable/bg_daemon_config_field"
+      android:hint="8787"
+      android:imeOptions="actionDone"
+      android:inputType="number"
+      android:minHeight="44dp"
+      android:paddingHorizontal="12dp"
+      android:textColor="#F4F7FA"
+      android:textColorHint="#6F8794"
+      android:textSize="13sp" />
+
+    <LinearLayout
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="16dp"
+      android:gravity="end"
+      android:orientation="horizontal">
+
+      <Button
+        android:id="@+id/buttonConfigCancel"
+        android:layout_width="wrap_content"
+        android:layout_height="40dp"
+        android:background="@drawable/bg_daemon_config_button_secondary"
+        android:minWidth="88dp"
+        android:text="取消"
+        android:textColor="#E1EAF0"
+        android:textSize="12sp" />
+
+      <Button
+        android:id="@+id/buttonConfigSave"
+        android:layout_width="wrap_content"
+        android:layout_height="40dp"
+        android:layout_marginStart="8dp"
+        android:background="@drawable/bg_daemon_config_button_primary"
+        android:minWidth="120dp"
+        android:text="保存并重连"
+        android:textColor="#F8FBFF"
+        android:textSize="12sp" />
+    </LinearLayout>
+  </LinearLayout>
+</ScrollView>

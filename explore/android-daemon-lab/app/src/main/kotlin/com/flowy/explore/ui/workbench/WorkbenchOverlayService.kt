@@ -14,26 +14,30 @@ import android.view.WindowManager
 import android.widget.Toast
 import com.flowy.explore.blocks.OpenAccessibilitySettingsBlock
 import com.flowy.explore.blocks.OpenOverlayPermissionSettingsBlock
-import com.flowy.explore.blocks.StartDaemonBlock
-import com.flowy.explore.blocks.StopDaemonBlock
 import com.flowy.explore.foundation.AgentMode
-import com.flowy.explore.foundation.DevServerOverrideStore
 import com.flowy.explore.foundation.WorkbenchPreferenceStore
+import com.flowy.explore.flows.UpgradeCheckFlow
+import com.flowy.explore.ui.DaemonConfigActivity
 import com.flowy.explore.ui.DevPanelActivity
 import kotlin.math.max
+import kotlin.math.min
 
 class WorkbenchOverlayService : Service() {
   private val handler = Handler(Looper.getMainLooper())
   private lateinit var windowManager: WindowManager
   private lateinit var stateStore: OverlayUiStateStore
+  private lateinit var runtimeStore: WorkbenchOverlayRuntimeStore
   private lateinit var prefs: WorkbenchPreferenceStore
-  private lateinit var overrideStore: DevServerOverrideStore
   private lateinit var viewFactory: WorkbenchViewFactory
   private lateinit var views: WorkbenchViewFactory.Views
+  private lateinit var upgradeCheckFlow: UpgradeCheckFlow
   private lateinit var bubbleParams: WindowManager.LayoutParams
+  private lateinit var dismissParams: WindowManager.LayoutParams
   private lateinit var panelParams: WindowManager.LayoutParams
   private var expanded = false
   private var currentSection = Section.AGENT_CONTROL
+  private var renderedSection: Section? = null
+  private var renderedSectionKey: String? = null
 
   private val renderLoop = object : Runnable {
     override fun run() {
@@ -44,14 +48,15 @@ class WorkbenchOverlayService : Service() {
 
   override fun onCreate() {
     super.onCreate()
-    isShowing = true
     windowManager = getSystemService(WindowManager::class.java)
     stateStore = OverlayUiStateStore(this)
+    runtimeStore = WorkbenchOverlayRuntimeStore(this)
     prefs = WorkbenchPreferenceStore(this)
-    overrideStore = DevServerOverrideStore(this)
     viewFactory = WorkbenchViewFactory(this)
+    upgradeCheckFlow = UpgradeCheckFlow(this)
     views = viewFactory.createViews()
     bubbleParams = bubbleParams()
+    dismissParams = dismissParams()
     panelParams = panelParams()
     attachViews()
     bindInteractions()
@@ -62,7 +67,8 @@ class WorkbenchOverlayService : Service() {
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     when (intent?.action) {
       ACTION_HIDE -> stopSelf()
-      ACTION_SHOW -> renderState()
+      ACTION_SHOW -> resumeOverlay()
+      ACTION_SUSPEND -> suspendOverlay()
     }
     return START_STICKY
   }
@@ -70,7 +76,10 @@ class WorkbenchOverlayService : Service() {
   override fun onDestroy() {
     handler.removeCallbacks(renderLoop)
     removeViewSafely(views.panelRoot)
+    removeViewSafely(views.dismissRoot)
     removeViewSafely(views.bubbleRoot)
+    runtimeStore.setShowing(false)
+    runtimeStore.setExpanded(false)
     isShowing = false
     super.onDestroy()
   }
@@ -78,74 +87,118 @@ class WorkbenchOverlayService : Service() {
   override fun onBind(intent: Intent?): IBinder? = null
 
   private fun attachViews() {
+    windowManager.addView(views.dismissRoot, dismissParams)
     windowManager.addView(views.bubbleRoot, bubbleParams)
     windowManager.addView(views.panelRoot, panelParams)
+    views.dismissRoot.visibility = View.GONE
     views.panelRoot.visibility = View.GONE
+    runtimeStore.setShowing(true)
+    runtimeStore.setExpanded(false)
+    isShowing = true
   }
 
   private fun bindInteractions() {
     val dragListener = BubbleDragListener(
       onTap = { toggleExpanded() },
       onMove = { rawX, rawY ->
-        bubbleParams.x = rawX
-        bubbleParams.y = rawY
-        panelParams.y = rawY
+        bubbleParams.x = clampBubbleX(rawX)
+        bubbleParams.y = clampBubbleY(rawY)
         updatePositions()
       },
       onRelease = {
-        bubbleParams.x = if (bubbleParams.x < 0) -screenWidth() / 2 + dp(34) else screenWidth() / 2 - dp(34)
-        panelParams.y = bubbleParams.y
+        bubbleParams.x = snapBubbleToEdge(bubbleParams.x)
         updatePositions()
       },
     )
     views.bubbleRoot.setOnTouchListener(dragListener)
+    views.dismissRoot.setOnClickListener { collapseExpanded() }
     views.agentControlButton.setOnClickListener {
       currentSection = Section.AGENT_CONTROL
-      renderSection(stateStore.snapshot())
+      renderSection(stateStore.snapshot(), force = true)
     }
     views.captureModeButton.setOnClickListener {
       currentSection = Section.CAPTURE_MODE
-      renderSection(stateStore.snapshot())
+      renderSection(stateStore.snapshot(), force = true)
     }
     views.systemSettingsButton.setOnClickListener {
       currentSection = Section.SYSTEM_SETTINGS
-      renderSection(stateStore.snapshot())
+      renderSection(stateStore.snapshot(), force = true)
+    }
+    views.upgradeButton.setOnClickListener {
+      upgradeCheckFlow.check(
+        onStatus = { handler.post { toast(it) } },
+        onAvailable = { version -> handler.post { toast("发现新版本 $version，请点手动升级") } },
+      )
+    }
+    views.manualUpgradeButton.setOnClickListener {
+      upgradeCheckFlow.installPending {
+        handler.post { toast(it) }
+      }
     }
   }
 
   private fun toggleExpanded() {
-    expanded = !expanded
-    views.panelRoot.visibility = if (expanded) View.VISIBLE else View.GONE
+    if (expanded) collapseExpanded() else showExpanded()
+    renderState()
+  }
+
+  private fun showExpanded() {
+    expanded = true
+    views.dismissRoot.visibility = View.VISIBLE
+    views.panelRoot.visibility = View.VISIBLE
+    runtimeStore.setExpanded(true)
+  }
+
+  private fun collapseExpanded() {
+    expanded = false
+    views.dismissRoot.visibility = View.GONE
+    views.panelRoot.visibility = View.GONE
+    runtimeStore.setExpanded(false)
+    renderState()
+  }
+
+  private fun suspendOverlay() {
+    expanded = false
+    views.dismissRoot.visibility = View.GONE
+    views.panelRoot.visibility = View.GONE
+    views.bubbleRoot.visibility = View.GONE
+    runtimeStore.setExpanded(false)
+    runtimeStore.setShowing(false)
+    isShowing = false
+  }
+
+  private fun resumeOverlay() {
+    views.bubbleRoot.visibility = View.VISIBLE
+    if (expanded) {
+      views.dismissRoot.visibility = View.VISIBLE
+      views.panelRoot.visibility = View.VISIBLE
+    }
+    runtimeStore.setShowing(true)
+    isShowing = true
     renderState()
   }
 
   private fun renderState() {
     val snapshot = stateStore.snapshot()
-    views.bubbleRoot.text = OverlayStatusFormatter.bubbleLabel(snapshot)
-    views.bubbleRoot.setBackgroundColor(OverlayStatusFormatter.bubbleStateColor(snapshot))
-    views.statusTitle.text = "${snapshot.agentMode.name.lowercase()} · ${OverlayStatusFormatter.bubbleLabel(snapshot)}"
+    val bubbleLabel = OverlayStatusFormatter.bubbleLabel(snapshot)
+    val bubbleColor = OverlayStatusFormatter.bubbleStateColor(snapshot)
+    views.bubbleRoot.render(bubbleLabel, bubbleColor)
+    views.statusTitle.text = "${snapshot.agentMode.name.lowercase()} · $bubbleLabel"
     views.statusBody.text = OverlayStatusFormatter.statusSummary(snapshot)
     renderSection(snapshot)
     updatePositions()
   }
 
-  private fun renderSection(snapshot: WorkbenchStatusSnapshot) {
+  private fun renderSection(snapshot: WorkbenchStatusSnapshot, force: Boolean = false) {
+    val sectionKey = OverlaySectionRenderKey.build(currentSection, snapshot)
+    if (!force && renderedSection == currentSection && renderedSectionKey == sectionKey) return
     views.contentHost.removeAllViews()
     val sectionView = when (currentSection) {
       Section.AGENT_CONTROL -> viewFactory.buildAgentControlSection(
         snapshot = snapshot,
         onPassiveMode = { prefs.setAgentMode(AgentMode.PASSIVE); renderState() },
         onActiveMode = { prefs.setAgentMode(AgentMode.ACTIVE); renderState() },
-        onHostCommit = { host ->
-          if (host.isNotBlank()) {
-            overrideStore.saveHost(host)
-            reconnectDaemon()
-          }
-        },
-        onPortCommit = { portText ->
-          overrideStore.savePort(portText.toIntOrNull())
-          reconnectDaemon()
-        },
+        onOpenConnectionConfig = { openConnectionConfig() },
       )
       Section.CAPTURE_MODE -> viewFactory.buildCaptureSection(
         snapshot = snapshot,
@@ -167,21 +220,18 @@ class WorkbenchOverlayService : Service() {
         onOpenDevPanel = {
           startActivity(Intent(this, DevPanelActivity::class.java).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
         },
-        onCheckUpgrade = { toast("upgrade check skeleton ready") },
       )
     }
     views.contentHost.addView(sectionView)
-  }
-
-  private fun reconnectDaemon() {
-    StopDaemonBlock(this).run()
-    handler.postDelayed({ StartDaemonBlock(this).run() }, 250L)
-    handler.postDelayed({ renderState() }, 400L)
+    renderedSection = currentSection
+    renderedSectionKey = sectionKey
   }
 
   private fun updatePositions() {
-    val inwardOffset = if (bubbleParams.x < 0) dp(78) else -dp(250)
-    panelParams.x = bubbleParams.x + inwardOffset
+    bubbleParams.x = clampBubbleX(bubbleParams.x)
+    bubbleParams.y = clampBubbleY(bubbleParams.y)
+    panelParams.x = panelXForBubble()
+    panelParams.y = clampPanelY(bubbleParams.y - dp(24))
     if (::views.isInitialized) {
       windowManager.updateViewLayout(views.bubbleRoot, bubbleParams)
       windowManager.updateViewLayout(views.panelRoot, panelParams)
@@ -190,28 +240,43 @@ class WorkbenchOverlayService : Service() {
 
   private fun bubbleParams(): WindowManager.LayoutParams {
     return WindowManager.LayoutParams(
-      WindowManager.LayoutParams.WRAP_CONTENT,
-      WindowManager.LayoutParams.WRAP_CONTENT,
+      bubbleSize(),
+      bubbleSize(),
       overlayType(),
       WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
       PixelFormat.TRANSLUCENT,
     ).apply {
-      gravity = Gravity.CENTER or Gravity.END
-      x = screenWidth() / 2 - dp(34)
-      y = 0
+      gravity = Gravity.TOP or Gravity.START
+      x = rightDockX()
+      y = defaultBubbleY()
     }
   }
 
   private fun panelParams(): WindowManager.LayoutParams {
     return WindowManager.LayoutParams(
-      dp(220),
+      panelWidth(),
       WindowManager.LayoutParams.WRAP_CONTENT,
       overlayType(),
       WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
       PixelFormat.TRANSLUCENT,
     ).apply {
-      gravity = Gravity.CENTER or Gravity.END
-      x = -dp(250)
+      gravity = Gravity.TOP or Gravity.START
+      softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
+      x = panelXForBubble()
+      y = clampPanelY(defaultBubbleY() - dp(24))
+    }
+  }
+
+  private fun dismissParams(): WindowManager.LayoutParams {
+    return WindowManager.LayoutParams(
+      WindowManager.LayoutParams.MATCH_PARENT,
+      WindowManager.LayoutParams.MATCH_PARENT,
+      overlayType(),
+      WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+      PixelFormat.TRANSLUCENT,
+    ).apply {
+      gravity = Gravity.TOP or Gravity.START
+      x = 0
       y = 0
     }
   }
@@ -226,7 +291,61 @@ class WorkbenchOverlayService : Service() {
 
   private fun screenWidth(): Int = resources.displayMetrics.widthPixels
 
+  private fun screenHeight(): Int = resources.displayMetrics.heightPixels
+
+  private fun bubbleSize(): Int = dp(72)
+
+  private fun panelWidth(): Int = dp(248)
+
+  private fun bubbleVisibleWidth(): Int = dp(38)
+
+  private fun rightDockX(): Int = screenWidth() - bubbleVisibleWidth()
+
+  private fun leftDockX(): Int = bubbleVisibleWidth() - bubbleSize()
+
+  private fun defaultBubbleY(): Int = clampBubbleY(dp(160))
+
+  private fun snapBubbleToEdge(x: Int): Int {
+    return if (x + bubbleSize() / 2 < screenWidth() / 2) leftDockX() else rightDockX()
+  }
+
+  private fun clampBubbleX(x: Int): Int {
+    return min(max(x, leftDockX()), rightDockX())
+  }
+
+  private fun clampBubbleY(y: Int): Int {
+    val top = dp(96)
+    val bottom = max(top, screenHeight() - bubbleSize() - dp(120))
+    return min(max(y, top), bottom)
+  }
+
+  private fun clampPanelY(y: Int): Int {
+    val top = dp(88)
+    val bottom = max(top, screenHeight() - dp(280))
+    return min(max(y, top), bottom)
+  }
+
+  private fun panelXForBubble(): Int {
+    return if (bubbleParams.x <= leftDockX() / 2) {
+      bubbleVisibleWidth() + dp(8)
+    } else {
+      max(dp(8), screenWidth() - panelWidth() - bubbleVisibleWidth() - dp(8))
+    }
+  }
+
   private fun dp(value: Int): Int = max(1, (value * resources.displayMetrics.density).toInt())
+
+  private fun openConnectionConfig() {
+    suspendOverlay()
+    handler.post {
+      applicationContext.startActivity(
+        Intent(this, DaemonConfigActivity::class.java).apply {
+          addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+          putExtra(DaemonConfigActivity.EXTRA_RESTORE_OVERLAY, true)
+        },
+      )
+    }
+  }
 
   private fun removeViewSafely(view: View) {
     runCatching { windowManager.removeView(view) }
@@ -239,11 +358,12 @@ class WorkbenchOverlayService : Service() {
   companion object {
     const val ACTION_SHOW = "com.flowy.explore.action.WORKBENCH_SHOW"
     const val ACTION_HIDE = "com.flowy.explore.action.WORKBENCH_HIDE"
+    const val ACTION_SUSPEND = "com.flowy.explore.action.WORKBENCH_SUSPEND"
 
     @Volatile var isShowing: Boolean = false
   }
 
-  private enum class Section {
+  enum class Section {
     AGENT_CONTROL,
     CAPTURE_MODE,
     SYSTEM_SETTINGS,

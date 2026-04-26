@@ -17,11 +17,18 @@ import (
 func main() {
 	artifactRoot := envOrDefault("FLOWY_ARTIFACT_ROOT", filepath.Clean("../../artifacts"))
 	bindAddr := envOrDefault("FLOWY_MAC_DAEMON_ADDR", ":8787")
+	versionFilePath := envOrDefault("FLOWY_ANDROID_LAB_VERSION_FILE", filepath.Clean("../../explore/android-daemon-lab/config/runtime-version.json"))
+	apkPath := envOrDefault("FLOWY_ANDROID_LAB_APK_PATH", filepath.Clean("../../explore/android-daemon-lab/app/build/outputs/apk/debug/app-debug.apk"))
 	app := state.New(artifactRoot)
 
 	mux := http.NewServeMux()
 	mux.Handle("GET /health", jsonHandler(func(_ *http.Request) any { return map[string]string{"status": "ok"} }))
 	mux.Handle("GET /exp01/clients", jsonHandler(func(_ *http.Request) any { return app.Clients() }))
+	mux.Handle("GET /flowy/upgrade/check", flows.UpgradeCheckHandler(versionFilePath, ""))
+	mux.Handle("GET /flowy/upgrade/apk", flows.UpgradeApkManifestHandler(versionFilePath, apkPath, ""))
+	mux.Handle("GET /flowy/upgrade/apk/download", http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		http.ServeFile(writer, request, apkPath)
+	}))
 	mux.Handle("/exp01/ws", blocks.WSAcceptHandler(func(conn *websocket.Conn) {
 		go flows.RunClientSession(app, conn)
 	}))

@@ -19,6 +19,8 @@
 4. `execute-operation`
 5. `emit-event`
 
+同时，当前 Android runtime 已有一批经过真机验证的 **leaf blocks**，它们不是替代这 5 个骨架 block，而是作为骨架 block 的叶子实现单元。
+
 ---
 
 ## 一、block 的定位
@@ -129,6 +131,12 @@
 - 不直接做 filter
 - 不直接做 operation
 
+当前建议 `observe-page` 内部只编排这 3 类叶子能力：
+
+- `dump-accessibility-tree`
+- `capture-screenshot`
+- `page-context-build`
+
 ---
 
 ### 2. `filter-targets`
@@ -227,6 +235,14 @@
 - 只执行 operation
 - 不验证 post-anchor
 
+`execute-operation` 第一版固定只路由下面这些叶子动作：
+
+- `tap`
+- `scroll`
+- `input-text`
+- `press-key`
+- `back`
+
 ---
 
 ### 5. `emit-event`
@@ -285,7 +301,42 @@ block 本身不能偷偷跨层：
 
 ---
 
-## 五、输入输出引用规则
+## 五、当前已落地的 leaf block 目录映射
+
+为了避免“架构文档是一套、代码里又是一套”，当前已存在的基础能力直接映射如下：
+
+### 1. observe leaf blocks
+
+- `CaptureScreenshotBlock`
+- `DumpAccessibilityTreeBlock`
+- `UploadArtifactBlock`
+
+### 2. operate leaf blocks
+
+- `TapBlock`
+- `ScrollBlock`
+- `InputTextBlock`
+- `PressKeyBlock`
+- `BackBlock`
+
+### 3. runtime support leaf blocks
+
+- `AppendLogBlock`
+- `CheckUpgradeBlock`
+- `DownloadUpgradeApkBlock`
+- `PromptInstallApkBlock`
+
+这些 leaf blocks 的定位固定为：
+
+- 不直接承载 filter / anchor
+- 不直接感知业务页面语义
+- 只对“能做什么”负责
+
+后续 `observe-page / execute-operation` 统一用它们做叶子执行单元。
+
+---
+
+## 六、输入输出引用规则
 
 block 之间统一用 `ref` 串联：
 
@@ -302,7 +353,7 @@ block 之间统一用 `ref` 串联：
 
 ---
 
-## 六、错误模型
+## 七、错误模型
 
 每个 block 都统一返回错误对象：
 

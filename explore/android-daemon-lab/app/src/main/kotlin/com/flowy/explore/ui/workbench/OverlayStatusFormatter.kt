@@ -22,19 +22,28 @@ object OverlayStatusFormatter {
   }
 
   fun statusSummary(snapshot: WorkbenchStatusSnapshot): String {
-    return buildString {
-      append("daemon=")
-      append(snapshot.daemonStatus)
-      append("\nconn=")
-      append(snapshot.connectionStatus)
-      append("\naccess=")
-      append(snapshot.accessibilityStatus)
-      append("\nprojection=")
-      append(snapshot.projectionStatus)
-      append("\nmode=")
-      append(snapshot.agentMode.name.lowercase())
-      append("\ncapture=")
-      append(if (snapshot.captureModeEnabled) "active" else "inactive")
+    return listOf(
+      shortConnection(snapshot.connectionStatus),
+      shortAccessibility(snapshot.accessibilityStatus),
+      shortProjection(snapshot.projectionStatus),
+      if (snapshot.captureModeEnabled) "捕获开" else "捕获关",
+    ).joinToString(" · ")
+  }
+
+  private fun shortConnection(status: String): String {
+    return when (status) {
+      "connected" -> "连接正常"
+      "connecting", "reconnecting" -> "连接中"
+      "error" -> "连接异常"
+      else -> "未连接"
     }
+  }
+
+  private fun shortAccessibility(status: String): String {
+    return if (status == "enabled") "无障碍开" else "无障碍关"
+  }
+
+  private fun shortProjection(status: String): String {
+    return if (status == "ready") "截图开" else "截图关"
   }
 }
