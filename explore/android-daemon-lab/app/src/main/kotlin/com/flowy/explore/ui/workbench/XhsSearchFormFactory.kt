@@ -30,11 +30,10 @@ class XhsSearchFormFactory(private val context: Context) {
       setTextColor(Color.WHITE)
       setHintTextColor(Color.parseColor("#80B0BEC5"))
       hint = "搜索关键词"
-      textSize = 13f
+      textSize = 11f
       inputType = InputType.TYPE_CLASS_TEXT
-      background = roundedDrawable("#24313A44", "#5D74838F", 8, 1)
-      setPadding(dp(8), dp(6), dp(8), dp(6))
-      maxHeight = dp(36)
+      background = roundedDrawable("#24313A44", "#5D74838F", 6, 1)
+      setPadding(dp(6), dp(4), dp(6), dp(4))
       setSingleLine(true)
     }
 
@@ -42,10 +41,10 @@ class XhsSearchFormFactory(private val context: Context) {
       setText(config.maxPosts.toString())
       setTextColor(Color.WHITE)
       hint = "数量(1-50)"
-      textSize = 13f
+      textSize = 11f
       inputType = InputType.TYPE_CLASS_NUMBER
-      background = roundedDrawable("#24313A44", "#5D74838F", 8, 1)
-      setPadding(dp(8), dp(6), dp(8), dp(6))
+      background = roundedDrawable("#24313A44", "#5D74838F", 6, 1)
+      setPadding(dp(6), dp(4), dp(6), dp(4))
       setSingleLine(true)
     }
 
@@ -58,10 +57,10 @@ class XhsSearchFormFactory(private val context: Context) {
       setText(if (config.commentLimit == 0) "" else config.commentLimit.toString())
       setTextColor(Color.WHITE)
       hint = "评论条数(0=不限)"
-      textSize = 13f
+      textSize = 11f
       inputType = InputType.TYPE_CLASS_NUMBER
-      background = roundedDrawable("#24313A44", "#5D74838F", 8, 1)
-      setPadding(dp(8), dp(6), dp(8), dp(6))
+      background = roundedDrawable("#24313A44", "#5D74838F", 6, 1)
+      setPadding(dp(6), dp(4), dp(6), dp(4))
       setSingleLine(true)
     }
 
@@ -76,10 +75,10 @@ class XhsSearchFormFactory(private val context: Context) {
       setText(config.likeKeyword)
       setTextColor(Color.WHITE)
       hint = "评论点赞关键词"
-      textSize = 13f
+      textSize = 11f
       inputType = InputType.TYPE_CLASS_TEXT
-      background = roundedDrawable("#24313A44", "#5D74838F", 8, 1)
-      setPadding(dp(8), dp(6), dp(8), dp(6))
+      background = roundedDrawable("#24313A44", "#5D74838F", 6, 1)
+      setPadding(dp(6), dp(4), dp(6), dp(4))
       setSingleLine(true)
       visibility = if (config.likeTarget == LikeTarget.KEYWORD_COMMENT) View.VISIBLE else View.GONE
     }
@@ -90,7 +89,7 @@ class XhsSearchFormFactory(private val context: Context) {
 
     val startButton = Button(context).apply {
       text = "开始搜索"
-      textSize = 14f
+      textSize = 12f
       setTextColor(Color.WHITE)
       setBackgroundColor(Color.parseColor("#37474F"))
       setOnClickListener {
@@ -118,20 +117,20 @@ class XhsSearchFormFactory(private val context: Context) {
     return LinearLayout(context).apply {
       orientation = LinearLayout.VERTICAL
       setBackgroundColor(Color.parseColor("#22252A30"))
-      setPadding(dp(10), dp(10), dp(10), dp(10))
+      setPadding(dp(6), dp(6), dp(6), dp(6))
       addView(labelText("小红书搜索"), matchWrap())
-      addView(keywordInput, topMargin(matchWrap(), 6))
-      addView(maxPostsInput, topMargin(matchWrap(), 6))
-      addView(switchRow(collectImagesSwitch, collectLinksSwitch), topMargin(matchWrap(), 8))
-      addView(collectVideoLinksSwitch, topMargin(matchWrap(), 4))
-      addView(divider(), topMargin(verticalParams(), 8))
-      addView(labelText("评论"), topMargin(matchWrap(), 4))
-      addView(switchRow(collectCommentsSwitch, commentLimitInput), topMargin(matchWrap(), 4))
-      addView(divider(), topMargin(verticalParams(), 8))
-      addView(labelText("点赞"), topMargin(matchWrap(), 4))
-      addView(likeGroup, topMargin(matchWrap(), 4))
-      addView(likeKeywordInput, topMargin(matchWrap(), 4))
-      addView(startButton, topMargin(matchWrap(), 10))
+      addView(keywordInput, topMargin(matchWrap(), 4))
+      addView(maxPostsInput, topMargin(matchWrap(), 4))
+      addView(switchRow(collectImagesSwitch, collectLinksSwitch), topMargin(matchWrap(), 4))
+      addView(collectVideoLinksSwitch, topMargin(matchWrap(), 2))
+      addView(divider(), topMargin(verticalParams(), 4))
+      addView(labelText("评论"), topMargin(matchWrap(), 2))
+      addView(switchRow(collectCommentsSwitch, commentLimitInput), topMargin(matchWrap(), 2))
+      addView(divider(), topMargin(verticalParams(), 4))
+      addView(labelText("点赞"), topMargin(matchWrap(), 2))
+      addView(likeGroup, topMargin(matchWrap(), 2))
+      addView(likeKeywordInput, topMargin(matchWrap(), 2))
+      addView(startButton, topMargin(matchWrap(), 6))
     }
   }
 
@@ -140,7 +139,9 @@ class XhsSearchFormFactory(private val context: Context) {
       text = label
       isChecked = checked
       setTextColor(Color.parseColor("#CFD8DC"))
-      textSize = 12f
+      textSize = 11f
+      setPadding(0, 0, 0, 0)
+      minHeight = dp(0)
       thumbTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#78909C"))
       trackTintList = android.content.res.ColorStateList.valueOf(Color.parseColor("#37474F"))
     }
@@ -169,7 +170,7 @@ class XhsSearchFormFactory(private val context: Context) {
       textSize = 11f
       gravity = Gravity.CENTER
       buttonDrawable = null
-      minHeight = dp(32)
+      minHeight = dp(28)
       background = roundedDrawable(
         if (checked) "#5B78909C" else "#00000000",
         if (checked) "#B0C0CA" else "#00000000",
@@ -181,7 +182,7 @@ class XhsSearchFormFactory(private val context: Context) {
   private fun labelText(text: String) = TextView(context).apply {
     this.text = text
     setTextColor(Color.WHITE)
-    setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+    setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
   }
 
   private fun divider() = View(context).apply {

@@ -134,17 +134,6 @@ class WorkbenchOverlayService : Service() {
       appsSubPage = AppsSubPage.LIST
       renderSection(stateStore.snapshot(), force = true)
     }
-    views.upgradeButton.setOnClickListener {
-      upgradeCheckFlow.check(
-        onStatus = { handler.post { toast(it) } },
-        onAvailable = { version -> handler.post { toast("发现新版本 $version，请点手动升级") } },
-      )
-    }
-    views.manualUpgradeButton.setOnClickListener {
-      upgradeCheckFlow.installPending {
-        handler.post { toast(it) }
-      }
-    }
   }
 
   private fun toggleExpanded() {
@@ -229,6 +218,17 @@ class WorkbenchOverlayService : Service() {
         onOpenAccessibility = { OpenAccessibilitySettingsBlock(this).run() },
         onOpenDevPanel = {
           startActivity(Intent(this, DevPanelActivity::class.java).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+        },
+        onCheckUpgrade = {
+          upgradeCheckFlow.check(
+            onStatus = { handler.post { toast(it) } },
+            onAvailable = { version -> handler.post { toast("发现新版本 $version，请点手动升级") } },
+          )
+        },
+        onManualUpgrade = {
+          upgradeCheckFlow.installPending {
+            handler.post { toast(it) }
+          }
         },
       )
       Section.APPS -> when (appsSubPage) {

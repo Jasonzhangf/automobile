@@ -25,8 +25,7 @@ class WorkbenchViewFactory(private val context: Context) {
     val agentControlButton: Button,
     val captureModeButton: Button,
     val systemSettingsButton: Button,
-    val upgradeButton: Button,
-    val manualUpgradeButton: Button,
+
     val appsButton: Button,
     val contentHost: LinearLayout,
   )
@@ -43,8 +42,6 @@ class WorkbenchViewFactory(private val context: Context) {
     val agentControlButton = menuButton("Agent 自身控制")
     val captureModeButton = menuButton("捕获模式")
     val systemSettingsButton = menuButton("系统设置")
-    val upgradeButton = menuButton("检查升级")
-    val manualUpgradeButton = menuButton("手动升级")
     val appsButton = menuButton("应用")
     val contentHost = LinearLayout(context).apply {
       orientation = LinearLayout.VERTICAL
@@ -52,20 +49,18 @@ class WorkbenchViewFactory(private val context: Context) {
     val menuRow = LinearLayout(context).apply {
       orientation = LinearLayout.VERTICAL
       addView(agentControlButton, matchWrap())
-      addView(captureModeButton, topMargin(matchWrap(), 8))
-      addView(systemSettingsButton, topMargin(matchWrap(), 8))
-      addView(upgradeButton, topMargin(matchWrap(), 8))
-      addView(manualUpgradeButton, topMargin(matchWrap(), 8))
-      addView(appsButton, topMargin(matchWrap(), 8))
+      addView(captureModeButton, topMargin(matchWrap(), 4))
+      addView(systemSettingsButton, topMargin(matchWrap(), 4))
+      addView(appsButton, topMargin(matchWrap(), 4))
     }
     val container = LinearLayout(context).apply {
       orientation = LinearLayout.VERTICAL
       setBackgroundColor(Color.parseColor("#EA15171A"))
-      setPadding(dp(14), dp(14), dp(14), dp(14))
+      setPadding(dp(6), dp(6), dp(6), dp(6))
       addView(statusTitle, matchWrap())
-      addView(statusBody, topMargin(matchWrap(), 8))
-      addView(menuRow, topMargin(matchWrap(), 16))
-      addView(contentHost, topMargin(matchWrap(), 16))
+      addView(statusBody, topMargin(matchWrap(), 2))
+      addView(menuRow, topMargin(matchWrap(), 4))
+      addView(contentHost, topMargin(matchWrap(), 4))
     }
     val panelRoot = ScrollView(context).apply {
       isFillViewport = true
@@ -81,8 +76,6 @@ class WorkbenchViewFactory(private val context: Context) {
       agentControlButton,
       captureModeButton,
       systemSettingsButton,
-      upgradeButton,
-      manualUpgradeButton,
       appsButton,
       contentHost,
     )
@@ -129,12 +122,16 @@ class WorkbenchViewFactory(private val context: Context) {
     onOpenOverlayPermission: () -> Unit,
     onOpenAccessibility: () -> Unit,
     onOpenDevPanel: () -> Unit,
+    onCheckUpgrade: () -> Unit,
+    onManualUpgrade: () -> Unit,
   ): View {
     return section("系统设置", listOf(
       bodyText("悬浮=${snapshot.overlayPermissionStatus} · 无障碍=${snapshot.accessibilityStatus}"),
       actionButton("悬浮窗权限") { onOpenOverlayPermission() },
       actionButton("无障碍权限") { onOpenAccessibility() },
       actionButton("打开 Dev Panel") { onOpenDevPanel() },
+      actionButton("检查升级") { onCheckUpgrade() },
+      actionButton("手动升级") { onManualUpgrade() },
     ))
   }
 
@@ -161,10 +158,10 @@ class WorkbenchViewFactory(private val context: Context) {
     return LinearLayout(context).apply {
       orientation = LinearLayout.VERTICAL
       setBackgroundColor(Color.parseColor("#22252A30"))
-      setPadding(dp(10), dp(10), dp(10), dp(10))
+      setPadding(dp(4), dp(4), dp(4), dp(4))
       addView(headerText(title), matchWrap())
       views.forEachIndexed { index, view ->
-        addView(view, if (index == 0) topMargin(matchWrap(), 6) else topMargin(matchWrap(), 8))
+        addView(view, topMargin(matchWrap(), 2))
       }
     }
   }
@@ -176,7 +173,7 @@ class WorkbenchViewFactory(private val context: Context) {
       setTextColor(Color.WHITE)
       gravity = Gravity.CENTER
       buttonDrawable = null
-      minHeight = dp(40)
+      minHeight = dp(28)
       background = roundedDrawable(
         if (checked) "#5B78909C" else "#00000000",
         if (checked) "#B0C0CA" else "#00000000",
@@ -189,8 +186,10 @@ class WorkbenchViewFactory(private val context: Context) {
 
   private fun actionButton(text: String, onClick: () -> Unit): Button = Button(context).apply {
     this.text = text
-    textSize = 14f
-    minHeight = dp(40)
+    textSize = 11f
+    minWidth = 0
+    minHeight = dp(28)
+    setPadding(dp(8), 0, dp(8), 0)
     setBackgroundColor(Color.parseColor("#455A64"))
     setTextColor(Color.WHITE)
     setOnClickListener { onClick() }
@@ -198,8 +197,10 @@ class WorkbenchViewFactory(private val context: Context) {
 
   private fun menuButton(text: String): Button = Button(context).apply {
     this.text = text
-    textSize = 14f
-    minHeight = dp(40)
+    textSize = 11f
+    minWidth = 0
+    minHeight = dp(28)
+    setPadding(dp(8), 0, dp(8), 0)
     setBackgroundColor(Color.parseColor("#37474F"))
     setTextColor(Color.WHITE)
   }
@@ -207,13 +208,13 @@ class WorkbenchViewFactory(private val context: Context) {
   private fun headerText(text: String): TextView = TextView(context).apply {
     this.text = text
     setTextColor(Color.WHITE)
-    setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+    setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
   }
 
   private fun bodyText(text: String): TextView = TextView(context).apply {
     this.text = text
     setTextColor(Color.parseColor("#CFD8DC"))
-    setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+    setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
   }
 
   private fun matchWrap() = LinearLayout.LayoutParams(
