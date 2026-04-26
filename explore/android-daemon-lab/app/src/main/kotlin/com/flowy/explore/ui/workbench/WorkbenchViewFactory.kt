@@ -12,6 +12,8 @@ import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.TextView
+import com.flowy.explore.foundation.XhsSearchConfig
+import com.flowy.explore.foundation.XhsSearchConfigStore
 
 class WorkbenchViewFactory(private val context: Context) {
   data class Views(
@@ -25,6 +27,7 @@ class WorkbenchViewFactory(private val context: Context) {
     val systemSettingsButton: Button,
     val upgradeButton: Button,
     val manualUpgradeButton: Button,
+    val appsButton: Button,
     val contentHost: LinearLayout,
   )
 
@@ -42,6 +45,7 @@ class WorkbenchViewFactory(private val context: Context) {
     val systemSettingsButton = menuButton("系统设置")
     val upgradeButton = menuButton("检查升级")
     val manualUpgradeButton = menuButton("手动升级")
+    val appsButton = menuButton("应用")
     val contentHost = LinearLayout(context).apply {
       orientation = LinearLayout.VERTICAL
     }
@@ -52,6 +56,7 @@ class WorkbenchViewFactory(private val context: Context) {
       addView(systemSettingsButton, topMargin(matchWrap(), 8))
       addView(upgradeButton, topMargin(matchWrap(), 8))
       addView(manualUpgradeButton, topMargin(matchWrap(), 8))
+      addView(appsButton, topMargin(matchWrap(), 8))
     }
     val container = LinearLayout(context).apply {
       orientation = LinearLayout.VERTICAL
@@ -78,6 +83,7 @@ class WorkbenchViewFactory(private val context: Context) {
       systemSettingsButton,
       upgradeButton,
       manualUpgradeButton,
+      appsButton,
       contentHost,
     )
   }
@@ -130,6 +136,17 @@ class WorkbenchViewFactory(private val context: Context) {
       actionButton("无障碍权限") { onOpenAccessibility() },
       actionButton("打开 Dev Panel") { onOpenDevPanel() },
     ))
+  }
+
+  fun buildAppsSection(configStore: XhsSearchConfigStore, onStart: (XhsSearchConfig) -> Unit): View {
+    val config = configStore.load()
+    val formFactory = XhsSearchFormFactory(context)
+    val formView = formFactory.build(
+      config = config,
+      onConfigChange = { configStore.save(it) },
+      onStart = onStart,
+    )
+    return section("应用 · 小红书搜索", listOf(formView))
   }
 
   private fun section(title: String, views: List<View>): View {

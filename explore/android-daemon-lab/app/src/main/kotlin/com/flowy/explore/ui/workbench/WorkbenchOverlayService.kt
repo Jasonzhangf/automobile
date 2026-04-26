@@ -15,6 +15,8 @@ import android.widget.Toast
 import com.flowy.explore.blocks.OpenAccessibilitySettingsBlock
 import com.flowy.explore.blocks.OpenOverlayPermissionSettingsBlock
 import com.flowy.explore.foundation.AgentMode
+import com.flowy.explore.foundation.XhsSearchConfig
+import com.flowy.explore.foundation.XhsSearchConfigStore
 import com.flowy.explore.foundation.WorkbenchPreferenceStore
 import com.flowy.explore.flows.UpgradeCheckFlow
 import com.flowy.explore.ui.DaemonConfigActivity
@@ -31,6 +33,7 @@ class WorkbenchOverlayService : Service() {
   private lateinit var viewFactory: WorkbenchViewFactory
   private lateinit var views: WorkbenchViewFactory.Views
   private lateinit var upgradeCheckFlow: UpgradeCheckFlow
+  private lateinit var xhsConfigStore: XhsSearchConfigStore
   private lateinit var bubbleParams: WindowManager.LayoutParams
   private lateinit var dismissParams: WindowManager.LayoutParams
   private lateinit var panelParams: WindowManager.LayoutParams
@@ -54,6 +57,7 @@ class WorkbenchOverlayService : Service() {
     prefs = WorkbenchPreferenceStore(this)
     viewFactory = WorkbenchViewFactory(this)
     upgradeCheckFlow = UpgradeCheckFlow(this)
+    xhsConfigStore = XhsSearchConfigStore(this)
     views = viewFactory.createViews()
     bubbleParams = bubbleParams()
     dismissParams = dismissParams()
@@ -122,6 +126,10 @@ class WorkbenchOverlayService : Service() {
     }
     views.systemSettingsButton.setOnClickListener {
       currentSection = Section.SYSTEM_SETTINGS
+      renderSection(stateStore.snapshot(), force = true)
+    }
+    views.appsButton.setOnClickListener {
+      currentSection = Section.APPS
       renderSection(stateStore.snapshot(), force = true)
     }
     views.upgradeButton.setOnClickListener {
@@ -221,6 +229,13 @@ class WorkbenchOverlayService : Service() {
           startActivity(Intent(this, DevPanelActivity::class.java).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
         },
       )
+      Section.APPS -> viewFactory.buildAppsSection(xhsConfigStore) { config: XhsSearchConfig ->
+        if (config.keyword.isBlank()) {
+          toast("请输入关键词")
+        } else {
+          toast("搜索: ${config.keyword} (flow 骨架待接入)")
+        }
+      }
     }
     views.contentHost.addView(sectionView)
     renderedSection = currentSection
@@ -367,6 +382,7 @@ class WorkbenchOverlayService : Service() {
     AGENT_CONTROL,
     CAPTURE_MODE,
     SYSTEM_SETTINGS,
+    APPS,
   }
 }
 

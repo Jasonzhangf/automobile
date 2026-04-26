@@ -14,6 +14,7 @@ object OverlaySectionRenderKey {
         snapshot.accessibilityStatus,
         snapshot.projectionStatus,
       ).joinToString("|")
+      WorkbenchOverlayService.Section.APPS -> "apps"
     }
   }
 }
