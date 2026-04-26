@@ -8,7 +8,8 @@
   "targetFilter": {
     "anchorId": "result_card",
     "selector": {
-      "clickable": true
+      "contentDescContains": "笔记",
+      "longClickable": true
     }
   },
   "operationPlan": {
@@ -17,31 +18,23 @@
   },
   "anchorPolicy": {
     "preAnchor": {
-      "packageName": "com.xingin.xhs",
-      "mustContainTexts": [
-        "综合",
-        "最新"
-      ]
+      "packageName": "com.xingin.xhs"
     },
     "postAnchor": {
       "packageName": "com.xingin.xhs",
-      "mustContainTexts": [
-        "赞"
-      ]
+      "mustContainContentDescs": ["赞"]
     }
   },
   "timingPolicy": {
-    "minDelayMs": 900,
-    "maxDelayMs": 1700
+    "minDelayMs": 1000,
+    "maxDelayMs": 2000
   },
   "postObservePolicy": {
     "maxAttempts": 10,
-    "pollIntervalMs": 450
+    "pollIntervalMs": 500
   },
   "riskFlags": {
     "riskSensitive": true,
-    "notes": [
-      "当前设备/账号上，Accessibility 开启态下这一步有风控风险"
-    ]
+    "notes": ["XHS search result tap must use root backend only"]
   }
 }

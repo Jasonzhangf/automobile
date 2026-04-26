@@ -6,39 +6,32 @@
     "requireRootDump": true
   },
   "targetFilter": {
-    "anchorId": "search_input",
+    "anchorId": "search_submit",
     "selector": {
-      "editable": true
+      "contentDescContains": "搜索",
+      "clickable": true
     }
   },
   "operationPlan": {
-    "kind": "press-key",
-    "backend": "root",
-    "payload": {
-      "key": "search"
-    }
+    "kind": "tap",
+    "backend": "root"
   },
   "anchorPolicy": {
     "preAnchor": {
       "packageName": "com.xingin.xhs",
-      "mustContainTexts": [
-        "deepseek v4"
-      ]
+      "mustContainTexts": ["deepseek v4"]
     },
     "postAnchor": {
       "packageName": "com.xingin.xhs",
-      "mustContainTexts": [
-        "综合",
-        "最新"
-      ]
+      "mustContainContentDescs": ["笔记"]
     }
   },
   "timingPolicy": {
-    "minDelayMs": 700,
-    "maxDelayMs": 1400
+    "minDelayMs": 900,
+    "maxDelayMs": 1800
   },
   "postObservePolicy": {
-    "maxAttempts": 8,
-    "pollIntervalMs": 400
+    "maxAttempts": 10,
+    "pollIntervalMs": 500
   }
 }

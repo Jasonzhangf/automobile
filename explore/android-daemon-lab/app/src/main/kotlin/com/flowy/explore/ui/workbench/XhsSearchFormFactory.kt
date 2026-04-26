@@ -14,8 +14,8 @@ import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.Switch
 import android.widget.TextView
-import com.flowy.explore.foundation.LikeTarget
-import com.flowy.explore.foundation.XhsSearchConfig
+import com.flowy.explore.ui.workbench.LikeTarget
+import com.flowy.explore.ui.workbench.XhsSearchConfig
 
 class XhsSearchFormFactory(private val context: Context) {
   fun build(

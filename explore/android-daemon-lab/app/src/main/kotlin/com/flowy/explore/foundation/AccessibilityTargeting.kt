@@ -18,9 +18,11 @@ data class TargetSelector(
   val textContains: String? = null,
   val contentDescContains: String? = null,
   val hintTextContains: String? = null,
+  val classNameContains: String? = null,
   val editable: Boolean? = null,
   val scrollable: Boolean? = null,
   val clickable: Boolean? = null,
+  val longClickable: Boolean? = null,
   val bounds: TargetBounds? = null,
 )
 
@@ -50,9 +52,11 @@ object AccessibilityTargeting {
       textContains = selectorJson.optString("textContains", "").ifBlank { null },
       contentDescContains = selectorJson.optString("contentDescContains", "").ifBlank { null },
       hintTextContains = selectorJson.optString("hintTextContains", "").ifBlank { null },
+      classNameContains = selectorJson.optString("classNameContains", "").ifBlank { null },
       editable = selectorJson.optBooleanOrNull("editable") ?: defaultEditable.takeIf { it },
       scrollable = selectorJson.optBooleanOrNull("scrollable") ?: defaultScrollable.takeIf { it },
       clickable = selectorJson.optBooleanOrNull("clickable"),
+      longClickable = selectorJson.optBooleanOrNull("longClickable"),
       bounds = payload.optBounds() ?: selectorJson.optBounds(),
     )
   }
@@ -94,9 +98,11 @@ object AccessibilityTargeting {
     return selector.textContains.matches(node.optString("text", "")) &&
       selector.contentDescContains.matches(node.optString("contentDescription", "")) &&
       selector.hintTextContains.matches(node.optString("hintText", "")) &&
+      selector.classNameContains.matchesClassName(node.optString("className", "")) &&
       selector.editable.matches(flags.optBoolean("editable")) &&
       selector.scrollable.matches(flags.optBoolean("scrollable")) &&
       selector.clickable.matches(flags.optBoolean("clickable")) &&
+      selector.longClickable.matches(flags.optBoolean("longClickable")) &&
       selector.bounds.matches(node.optBoundsInScreen())
   }
 
@@ -104,10 +110,17 @@ object AccessibilityTargeting {
     return selector.textContains.matches(node.text?.toString()) &&
       selector.contentDescContains.matches(node.contentDescription?.toString()) &&
       selector.hintTextContains.matches(node.hintText?.toString()) &&
+      selector.classNameContains.matchesClassName(node.className?.toString()) &&
       selector.editable.matches(node.isEditable) &&
       selector.scrollable.matches(node.isScrollable) &&
       selector.clickable.matches(node.isClickable) &&
+      selector.longClickable.matches(node.isLongClickable) &&
       selector.bounds.matches(node.boundsInScreen())
+  }
+  private fun String?.matchesClassName(value: String?): Boolean {
+    if (this == null) return true
+    if (value == null) return false
+    return value.contains(this, ignoreCase = true)
   }
 
   private fun AccessibilityNodeInfo.boundsInScreen(): TargetBounds {

@@ -22,6 +22,7 @@ class EvaluateAnchorBlock(
       matched = matched and checkPackageName(pageState, anchor, reasons)
       matched = matched and checkProjectionReady(pageState, anchor, reasons)
       matched = matched and checkTexts(pageState, anchor, reasons)
+      matched = matched and checkContentDescs(pageState, anchor, reasons)
       if (reasons.length() == 0) reasons.put("no constraints")
       BlockResultFactory.ok(
         startedAt = startedAt,
@@ -83,6 +84,32 @@ class EvaluateAnchorBlock(
         reasons.put("text matched: $text")
       } else {
         reasons.put("text missing: $text")
+        matched = false
+      }
+    }
+    return matched
+  }
+
+  private fun checkContentDescs(pageState: ObservedPageState, anchor: JSONObject, reasons: JSONArray): Boolean {
+    val descs = anchor.optJSONArray("mustContainContentDescs") ?: return true
+    var matched = true
+    val snapshot = pageState.accessibilityJson()
+    val nodes = snapshot?.optJSONArray("nodes")
+    for (index in 0 until descs.length()) {
+      val expected = descs.optString(index)
+      if (expected.isBlank()) continue
+      var found = false
+      if (nodes != null) {
+        for (n in 0 until nodes.length()) {
+          val node = nodes.optJSONObject(n) ?: continue
+          val cd = node.optString("contentDescription", "")
+          if (cd.contains(expected, ignoreCase = true)) { found = true; break }
+        }
+      }
+      if (found) {
+        reasons.put("contentDesc matched: $expected")
+      } else {
+        reasons.put("contentDesc missing: $expected")
         matched = false
       }
     }

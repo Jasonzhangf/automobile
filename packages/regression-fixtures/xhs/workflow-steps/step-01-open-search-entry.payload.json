@@ -8,6 +8,8 @@
   "targetFilter": {
     "anchorId": "search_entry",
     "selector": {
+      "contentDescContains": "搜索",
+      "classNameContains": "Button",
       "clickable": true
     }
   },
@@ -18,16 +20,12 @@
   "anchorPolicy": {
     "preAnchor": {
       "packageName": "com.xingin.xhs",
-      "mustContainTexts": [
-        "关注",
-        "发现"
-      ]
+      "mustContainContentDescs": ["搜索"],
+      "mustContainTexts": ["发现"]
     },
     "postAnchor": {
       "packageName": "com.xingin.xhs",
-      "mustContainTexts": [
-        "猜你想搜"
-      ]
+      "mustContainContentDescs": ["猜你想搜"]
     }
   },
   "timingPolicy": {

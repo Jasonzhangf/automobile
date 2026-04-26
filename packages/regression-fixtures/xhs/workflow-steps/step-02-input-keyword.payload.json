@@ -24,9 +24,7 @@
     },
     "postAnchor": {
       "packageName": "com.xingin.xhs",
-      "mustContainTexts": [
-        "deepseek v4"
-      ]
+      "mustContainTexts": ["deepseek v4"]
     }
   },
   "timingPolicy": {

@@ -1,4 +1,4 @@
-package com.flowy.explore.foundation
+package com.flowy.explore.ui.workbench
 
 import android.content.Context
 

@@ -6,8 +6,9 @@
     "requireRootDump": true
   },
   "targetFilter": {
-    "anchorId": "detail_back",
+    "anchorId": "back_button",
     "selector": {
+      "contentDescContains": "返回",
       "clickable": true
     }
   },
@@ -21,10 +22,7 @@
     },
     "postAnchor": {
       "packageName": "com.xingin.xhs",
-      "mustContainTexts": [
-        "综合",
-        "最新"
-      ]
+      "mustContainContentDescs": ["笔记"]
     }
   },
   "timingPolicy": {

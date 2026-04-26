@@ -18,6 +18,8 @@ class FilterTargetsBlock(
       if (!selector.hasConstraints()) error("FILTER_SELECTOR_MISSING")
       val nodes = AccessibilityTargeting.findMatchingNodes(pageState.accessibilityJson(), selector)
       if (nodes.isEmpty()) error("TARGET_NOT_FOUND")
+      val selectionPolicy = input.optJSONObject("selectionPolicy") ?: input.optJSONObject("selection")
+      val selectedIndex = resolveSelectedIndex(nodes.size, selectionPolicy)
       val targetRefs = JSONArray()
       val targets = JSONArray()
       nodes.forEachIndexed { index, node ->
@@ -35,7 +37,7 @@ class FilterTargetsBlock(
         startedAt = startedAt,
         output = JSONObject().apply {
           put("targetCount", nodes.size)
-          put("selectedTargetRef", targetRefs.getString(0))
+          put("selectedTargetRef", targetRefs.getString(selectedIndex))
           put("targetRefs", targetRefs)
           put("targets", targets)
         },
@@ -60,9 +62,22 @@ class FilterTargetsBlock(
     return textContains != null ||
       contentDescContains != null ||
       hintTextContains != null ||
+      classNameContains != null ||
       editable != null ||
       scrollable != null ||
       clickable != null ||
+      longClickable != null ||
       bounds != null
+  }
+
+  private fun resolveSelectedIndex(count: Int, policy: JSONObject?): Int {
+    if (policy == null || count == 0) return 0
+    val mode = policy.optString("mode", "first")
+    return when (mode) {
+      "first" -> 0
+      "last" -> count - 1
+      "nth" -> policy.optInt("index", 0).coerceIn(0, count - 1)
+      else -> 0
+    }
   }
 }

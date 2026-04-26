@@ -8,6 +8,7 @@
   "targetFilter": {
     "anchorId": "comment_entry",
     "selector": {
+      "contentDescContains": "评论",
       "clickable": true
     }
   },
@@ -21,9 +22,7 @@
     },
     "postAnchor": {
       "packageName": "com.xingin.xhs",
-      "mustContainTexts": [
-        "评论"
-      ]
+      "mustContainContentDescs": ["评论"]
     }
   },
   "timingPolicy": {

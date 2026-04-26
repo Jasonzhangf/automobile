@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: $0 <command> [purpose] [payload-json] [device-id]" >&2
+  echo "usage: $0 <command> [purpose] [payload-json] [device-id] [timeout-ms]" >&2
   exit 1
 fi
 
@@ -13,6 +13,7 @@ if [ -z "$payload_json" ]; then
   payload_json='{}'
 fi
 explicit_device_id="${4:-}"
+timeout_ms="${5:-30000}"
 base_url="${FLOWY_MAC_DAEMON_BASE_URL:-http://127.0.0.1:8787}"
 
 clients_json="$(curl -sSf "$base_url/exp01/clients")"
@@ -41,7 +42,7 @@ PY
   fi
 fi
 
-body="$(COMMAND_NAME="$command_name" PURPOSE="$purpose" PAYLOAD_JSON="$payload_json" DEVICE_ID="$device_id" python3 - <<'PY'
+body="$(COMMAND_NAME="$command_name" PURPOSE="$purpose" PAYLOAD_JSON="$payload_json" DEVICE_ID="$device_id" TIMEOUT_MS="$timeout_ms" python3 - <<'PY'
 import json
 import os
 from datetime import datetime
@@ -49,6 +50,7 @@ from datetime import datetime
 command_name = os.environ["COMMAND_NAME"]
 purpose = os.environ["PURPOSE"]
 payload = json.loads(os.environ["PAYLOAD_JSON"])
+timeout_ms = int(os.environ.get("TIMEOUT_MS", "30000"))
 run_id = datetime.now().strftime('%Y-%m-%dT%H-%M-%S') + '_' + command_name.replace('_','-') + '_' + purpose.replace('_','-')
 
 print(json.dumps({
@@ -57,6 +59,7 @@ print(json.dumps({
     'command': command_name,
     'payload': payload,
     'runId': run_id,
+    'timeoutMs': timeout_ms,
   }
 }))
 PY

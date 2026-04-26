@@ -15,8 +15,8 @@ import android.widget.Toast
 import com.flowy.explore.blocks.OpenAccessibilitySettingsBlock
 import com.flowy.explore.blocks.OpenOverlayPermissionSettingsBlock
 import com.flowy.explore.foundation.AgentMode
-import com.flowy.explore.foundation.XhsSearchConfig
-import com.flowy.explore.foundation.XhsSearchConfigStore
+import com.flowy.explore.ui.workbench.XhsSearchConfig
+import com.flowy.explore.ui.workbench.XhsSearchConfigStore
 import com.flowy.explore.foundation.WorkbenchPreferenceStore
 import com.flowy.explore.flows.UpgradeCheckFlow
 import com.flowy.explore.ui.DaemonConfigActivity

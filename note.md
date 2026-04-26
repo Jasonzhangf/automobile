@@ -1759,3 +1759,66 @@
       - `2026-04-26T14-42-13_dump-window-state-root_workflow-success-post-state`
     - `root-window-state.json` 显示：
       - `com.android.settings/com.android.settings.SubSettings`
+
+---
+
+## XHS 页面元素探索（2026-04-26 evening）
+
+### 设计原则
+- **不用绝对坐标** — 用 selector 定位，bounds 只用于计算点击点
+- **selector 是可扩展的** — 不预设只用哪些字段，先探索每页能拿到什么，什么稳定
+- **手机端不存数据** — 全部 artifact 回传 Mac
+- 目标：找出跨 session 稳定的 selector 模式，形成 APP profile
+
+### 页面 1：XHS 首页（发现 tab）
+
+**前置条件**：XHS 在前台，Flowy root 可用，Accessibility OFF
+
+**页面特征**：
+- packageName: com.xingin.xhs
+- Activity: com.xingin.xhs.index.v2.IndexActivityV2
+- 113 total nodes, 34 个有 text/contentDesc 的节点
+
+**稳定元素（UI 固定部分）**：
+
+| 节点 | className | contentDesc | text | clickable | 用途 |
+|------|-----------|-------------|------|-----------|------|
+| 搜索按钮 | Button | "搜索" | - | ✅ | search_entry |
+| Tab 关注 | ActionBar$Tab | "关注" | "关注" | ✅ | tab_nav |
+| Tab 发现 | ActionBar$Tab | "发现" | "发现" | ✅,selected | tab_nav |
+| Tab 视频 | ActionBar$Tab | "视频" | "视频" | ✅ | tab_nav |
+| 底部 首页 | ViewGroup | "首页" | "首页" | ✅,selected | bottom_nav |
+| 底部 市集 | ViewGroup | "市集" | "市集" | ✅ | bottom_nav |
+| 底部 发布 | RelativeLayout | "发布" | - | ✅,longClickable | bottom_nav |
+| 底部 消息 | ViewGroup | "消息，4条未读" | "消息" | ✅ | bottom_nav |
+| 底部 我 | ViewGroup | "我" | "我" | ✅ | bottom_nav |
+
+**selector 模式**：
+- search_entry: `contentDescContains:"搜索" + className:"Button"` — 唯一匹配
+- tab_nav: `contentDescContains:"发现" + className:"ActionBar$Tab"` — 唯一匹配
+- bottom_nav: `contentDescContains:"首页"` — 唯一匹配
+
+**动态元素（内容卡片）**：
+
+| 格式 | contentDesc 示例 | className | longClickable | bounds |
+|------|-----------------|-----------|---------------|--------|
+| 笔记卡片 | "笔记  Qwen3.6-27B... 来自一个粗工 41赞" | FrameLayout | ✅ | [28,289,594,994] |
+| 视频卡片 | "视频  骨盆左旋... 来自林小丁yoga 333赞" | FrameLayout | ✅ | [622,289,1188,1323] |
+| 直播卡片 | "直播  中国斯诺克... 来自台球厅故事汇 3.5万人观看" | FrameLayout | ✅ | - |
+
+**卡片的 selector 模式**：
+- 内容卡片: `contentDescContains:"笔记" + longClickable:true` 或 `contentDescContains:"视频" + longClickable:true`
+- 但注意：不同卡片靠 contentDesc 前缀区分类型（"笔记"/"视频"/"直播"）
+- 卡片内子节点：
+  - 作者名: TextView, 有 text（如 "一个粗工"），不可点击
+  - 赞数: TextView, 有 text（如 "41"），可点击
+  - 封面图: ImageView, 无 text/cd
+
+**关键发现**：
+1. contentDescription 是 XHS 最丰富的字段，卡片把类型+标题+作者+赞数都嵌进去了
+2. className 单独不够用（太多 FrameLayout），但 className + contentDesc 组合很精准
+3. longClickable=true 可以区分卡片 vs 普通容器
+4. Tab 的 selected 状态可用来确认当前在哪个 tab
+5. 赞数是 clickable 的 TextView，可以作为 like_entry 的入口
+
+**下一步**：进入搜索页看有什么

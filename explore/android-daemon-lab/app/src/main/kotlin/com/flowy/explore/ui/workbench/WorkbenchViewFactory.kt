@@ -12,8 +12,8 @@ import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.TextView
-import com.flowy.explore.foundation.XhsSearchConfig
-import com.flowy.explore.foundation.XhsSearchConfigStore
+import com.flowy.explore.ui.workbench.XhsSearchConfig
+import com.flowy.explore.ui.workbench.XhsSearchConfigStore
 
 class WorkbenchViewFactory(private val context: Context) {
   data class Views(
