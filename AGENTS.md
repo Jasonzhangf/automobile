@@ -44,6 +44,7 @@
 
 ## 项目硬护栏
 - 无证据不宣称完成。
+- **没有真机端到端验证（L4），不得宣称完成，不得 close bd task。** 任务完成门禁固定为：L1 单元测试 → L2 覆盖测试 → L3 编排测试 → L4 真机 E2E → build。缺任何一级都不能标记完成。详见 `docs/architecture/module-delivery-playbook.md` §3.6。
 - 禁止静默失败；失败必须保留原因或日志。
 - 未经明确授权，不做删除/回滚/迁移/发布等破坏性操作。
 - 禁止 broad kill：`pkill` / `killall` / `kill $(...)` / `xargs kill`。

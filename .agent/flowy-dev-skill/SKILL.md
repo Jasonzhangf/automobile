@@ -87,12 +87,20 @@ Do not collapse these three layers into one file or one module.
 
 ## Test Strategy \(minimum viable\)
 
-每新增一个 module，必须包含：
+每新增一个 module，必须通过五级递进门禁（缺一不可）：
 
-1. **Unit test**: 覆盖正常路径 + 至少一个错误路径
-2. **Fixture**: 用 `packages/regression-fixtures/` 存放真实 dump 样本作为测试输入
-3. **Integration test**: flow 级别至少跑通 happy path（搜索 → detail → snapshot → back）
-4. **Build gate**: 测试失败 → 不能 build 通过
+1. **L1 Unit test**: 覆盖正常路径 + 至少一个错误路径
+2. **L2 Coverage test**: 每个 block 有 success / error / boundary 覆盖
+3. **L3 Orchestration test**: flow 状态机串联跑通 happy path（本地 mock）
+4. **L4 Real-device E2E**: 在真实 Android 设备上跑完完整流程，产出 artifact（截图 / response.json / collection-result.json）
+5. **Build gate**: 上述四级全部通过后才允许 build
+
+**硬规则：没有 L4 真机端到端验证，不得宣称完成，不得 close bd task。**
+
+L4 证据必须满足以下至少一项：
+- `artifacts/` 下有截图路径
+- `artifacts/` 下有 collection-result.json
+- `note.md` 中有记录的真机观察证据
 
 测试优先于实现：先写 test fixture + test case，再写 block 实现。
 

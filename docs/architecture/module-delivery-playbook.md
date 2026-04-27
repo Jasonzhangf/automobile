@@ -132,19 +132,34 @@ block 没过自己的测试门禁，不进入 flow。
 
 ### 6. verify：固定门禁顺序
 
-固定顺序：
+固定顺序（五级递进，缺一不可）：
 
 ```text
-check-file-lines
--> unit tests
--> coverage tests
--> integration tests
--> regression replay
--> build
--> smoke
+check-file-lines                    # L0: 文件门禁
+-> unit tests                       # L1: 单元测试（纯函数 / 最小模块）
+-> block coverage tests             # L2: 覆盖测试（每个 block 的正常 + 错误 + 边界）
+-> flow orchestration tests         # L3: 编排测试（状态机串联、mock 环境）
+-> real-device E2E test             # L4: 真机端到端（真实设备 + 真实 APP + 完整流程）
+-> build                            # 最后才是 build
 ```
 
-任何一门失败，都不能宣称完成。
+**硬规则：没有真机端到端验证，不得宣称完成。**
+
+五级测试定义：
+
+| 级别 | 名称 | 环境 | 通过标准 |
+|------|------|------|----------|
+| L1 | 单元测试 | 本地 Go/JVM | 每个函数正常路径 + 至少一个错误路径 |
+| L2 | 覆盖测试 | 本地 Go/JVM | 每个 block 有 success/error/boundary 覆盖 |
+| L3 | 编排测试 | 本地 Go/JVM + mock | flow 状态机串联跑通 happy path |
+| L4 | 真机 E2E | **真实 Android 设备** | 从入口到结果的完整闭环，有截图/日志 artifact |
+
+L4 必须提供以下证据之一：
+- 截图（artifact 路径）
+- 完整 response.json / collection-result.json
+- note.md 中记录的观察证据
+
+任何一级失败，都不能宣称完成，不能 close bd task。
 
 ---
 
