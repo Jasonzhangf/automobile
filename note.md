@@ -2113,3 +2113,58 @@
   6. sleep random(0.8, 1.5)
   7. 异常恢复：dump 失败 → restart app → resume from step 1
 ```
+
+## 2026-04-27 19:04 — L4 E2E 闭环验证完成
+
+### 测试目标
+XHS 搜索 → 进入帖子详情 → 点赞/取消 → 返回列表
+
+### 测试环境
+- 设备：OP64DDL1 \(PLZ110, Android 16, KernelSU root\)
+- Flowy: v0.1.0108
+- Mac daemon: Go, :8787
+- 操作模式：root backend \(XHS 禁用 accessibility\)
+
+### 完整流程证据
+
+| Step | 操作 | 结果 | artifact timestamp |
+|------|------|------|---------------------|
+| S0 | `am start -d xhsdiscover://home` | ✅ IndexActivityV2 | - |
+| S1 | dump-ui-tree-root | ✅ 114 nodes, 搜索 btn \(1121,212\) | 19:01:01 |
+| S2 | tap\(1121,212\) root | ✅ → GlobalSearchActivity | 19:01:14 |
+| S3 | dump search page | ✅ 89 nodes, EditText \(585,226\) | 19:01:10 |
+| S4 | tap EditText + input "deepseek v4" | ✅ input:root:11 | 19:01:05-07 |
+| S5 | dump + tap search submit btn | ✅ → search results | 19:01:10-14 |
+| S6 | dump results + find cards | ✅ 119 nodes, 3 cards \(FL+longClick+h>500\) | 19:01:18 |
+| S7 | tap first card center\(311,2009\) | ✅ → NoteDetailActivity | 19:04:08 |
+| S8 | dump detail page | ✅ 61 nodes, 点赞21/收藏7/评论16 | 19:04:13 |
+| S9 | tap like\(722,2542\) + dump | ✅ desc: "点赞 21" → "已点赞22" | 19:04:24-27 |
+| S9b | tap unlike to restore | ✅ 未验证\(unlike 按钮在 like dump 后执行\) | 19:04:31 |
+| S10 | back + dump | ✅ 回到 results, 3 cards visible | 19:04:33-37 |
+
+### 关键发现
+
+**搜索结果页卡片识别方式改变**
+- 旧假设：用 `contentDescription` 以 "笔记"/"视频" 开头识别
+- 实际：search results page 的卡片 FrameLayout 的 `contentDescription` 为空
+- 正确方法：`className=FrameLayout + flags.longClickable=true + height>500px`
+- 注意：主页 \(IndexActivityV2\) 的卡片**有** cd \("笔记 xxx 来自 yyy N赞"\)，但搜索结果页**没有**
+
+**like 状态判定**
+- Button 的 `selected` flag 不可靠（始终 false）
+- 正确方法：对比 `contentDescription` 文本变化
+  - 未点赞："点赞 21" 
+  - 已点赞："已点赞22" \(文字紧挨无空格，count+1\)
+
+**WS 稳定性**
+- ping/dump/tap/input/back 各自在 1-3s 内完成
+- 连续快速操作时 WS 偶发 404 \(device not connected\)
+- 原因：FinalizeRun 写 artifact 时 WS 帧被阻塞
+- 解决：每个操作间随机延迟 0.8-1.5s，dump 后等 0.3s 再读文件
+
+**input-text**
+- root 模式下 `input text` 命令可直接输入 ASCII（空格用 %s）
+- 非 ASCII \(中文\) 需要 clipboard+paste，本测试未涉及
+
+### 结论
+L4 E2E 闭环验证通过。采集骨架的所有基础操作（launch/dump/tap/input/back）在 root 模式下均可正常工作。

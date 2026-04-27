@@ -34,6 +34,7 @@ func main() {
 	}))
 	mux.Handle("POST /exp01/artifacts", flows.ArtifactUploadHandler(app))
 	mux.Handle("POST /exp01/command", flows.CommandRoundtripHandler(app))
+	mux.Handle("POST /exp01/collection/run", flows.CollectionRunHandler(app))
 
 	log.Printf("flowy mac daemon listening on %s", bindAddr)
 	log.Fatal(http.ListenAndServe(bindAddr, mux))
