@@ -43,6 +43,8 @@ class PressKeyBlock(
       "recents", "recent_apps" -> "input keyevent 187"
       "notifications" -> "cmd statusbar expand-notifications"
       "quick_settings" -> "cmd statusbar expand-settings"
+      "enter" -> "input keyevent 66"
+      "delete", "del", "backspace" -> "input keyevent 67"
       else -> error("UNSUPPORTED_KEY")
     }
   }

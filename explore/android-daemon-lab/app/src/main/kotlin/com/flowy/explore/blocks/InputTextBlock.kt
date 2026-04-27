@@ -10,6 +10,7 @@ import org.json.JSONObject
 
 class InputTextBlock(
   private val rootShellRunner: RootShellRunner = RootShellRunner(),
+  private val setClipboard: ((String) -> Boolean)? = null,
 ) {
   fun run(payload: JSONObject): String {
     val text = payload.optString("text").ifBlank { error("INPUT_TEXT_MISSING") }
@@ -40,9 +41,19 @@ class InputTextBlock(
   }
 
   private fun runRoot(text: String): String {
-    val normalized = text.replace(" ", "%s").replace("\"", "\\\"")
-    val result = rootShellRunner.run("input text \"$normalized\"")
-    check(result.exitCode == 0) { "INPUT_SET_TEXT_FAILED" }
-    return "input:root:${text.length}"
+    if (text.isPureAscii()) {
+      val normalized = text.replace(" ", "%s")
+      val result = rootShellRunner.run("input text $normalized")
+      check(result.exitCode == 0) { "INPUT_TEXT_FAILED" }
+      return "input:root:${text.length}"
+    }
+    // Unicode: set clipboard RIGHT before paste to avoid system pollution
+    val clipFn = setClipboard ?: error("CLIPBOARD_REQUIRED_FOR_UNICODE")
+    check(clipFn(text)) { "CLIPBOARD_SET_FAILED" }
+    val pasteResult = rootShellRunner.run("input keyevent 279", 3000)
+    check(pasteResult.exitCode == 0) { "PASTE_FAILED" }
+    return "input:root:clipboard:${text.length}"
   }
+
+  private fun String.isPureAscii(): Boolean = all { it.code in 0x20..0x7E }
 }

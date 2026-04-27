@@ -5,6 +5,8 @@ import com.flowy.explore.blocks.AppendLogBlock
 import com.flowy.explore.blocks.BackBlock
 import com.flowy.explore.blocks.CaptureScreenshotBlock
 import com.flowy.explore.blocks.ConnectWsBlock
+import com.flowy.explore.blocks.SelfExemptionBlock
+import com.flowy.explore.blocks.WsWatchdogBlock
 import com.flowy.explore.blocks.DumpUiTreeRootBlock
 import com.flowy.explore.blocks.DumpAccessibilityTreeBlock
 import com.flowy.explore.blocks.EmitEventBlock
@@ -12,6 +14,7 @@ import com.flowy.explore.blocks.ExecuteOperationBlock
 import com.flowy.explore.blocks.HandleFetchLogsBlock
 import com.flowy.explore.blocks.HandlePingBlock
 import com.flowy.explore.blocks.InputTextBlock
+import com.flowy.explore.blocks.SetClipboardBlock
 import com.flowy.explore.blocks.ObservePageBlock
 import com.flowy.explore.blocks.OpenDeepLinkBlock
 import com.flowy.explore.blocks.PressKeyBlock
@@ -41,9 +44,21 @@ class DaemonStartupFlow(
   private val appendLogBlock = AppendLogBlock(logStore)
   private val versionReader = VersionReader(context)
   private val accessibilityStatusReader = AccessibilityStatusReader(context)
+  private val selfExemptionBlock = SelfExemptionBlock()
+  private val setClipboardBlock = SetClipboardBlock(context)
   private lateinit var wsClientAdapter: WsClientAdapter
+  private lateinit var wsWatchdogBlock: WsWatchdogBlock
+  private val scheduler = java.util.concurrent.Executors.newSingleThreadScheduledExecutor()
 
   fun start(onStatus: (String) -> Unit, onHeartbeat: (String) -> Unit) {
+    // exempt self from battery optimization using root
+    try {
+      val exemption = selfExemptionBlock.run("com.flowy.explore")
+      appendLogBlock.info("self_exemption", "result=${exemption.success} detail=${exemption.detail}")
+    } catch (t: Throwable) {
+      appendLogBlock.error("self_exemption_failed", t.message ?: "unknown")
+    }
+
     lateinit var pingFlow: PingResponseFlow
     lateinit var fetchLogsFlow: FetchLogsFlow
     lateinit var screenshotCaptureFlow: ScreenshotCaptureFlow
@@ -56,12 +71,14 @@ class DaemonStartupFlow(
     wsClientAdapter = WsClientAdapter(
       onOpen = {
         reconnectFlow.reset()
+        if (::wsWatchdogBlock.isInitialized) wsWatchdogBlock.markAlive()
         onStatus("connected")
         onHeartbeat(TimeHelper.now())
         appendLogBlock.info("ws_connect_succeeded", "connected to mac daemon")
         sendHello()
       },
       onMessage = { message ->
+        if (::wsWatchdogBlock.isInitialized) wsWatchdogBlock.markAlive()
         wsSessionFlow(
           pingFlow,
           fetchLogsFlow,
@@ -140,7 +157,7 @@ class DaemonStartupFlow(
       executeOperationBlock = ExecuteOperationBlock(
         tapBlock = TapBlock(),
         scrollBlock = ScrollBlock(),
-        inputTextBlock = InputTextBlock(),
+        inputTextBlock = InputTextBlock(setClipboard = setClipboardBlock::run),
         backBlock = BackBlock(),
         pressKeyBlock = PressKeyBlock(),
         openDeepLinkBlock = OpenDeepLinkBlock(context),
@@ -158,7 +175,7 @@ class DaemonStartupFlow(
       executeOperation = ExecuteOperationBlock(
         tapBlock = TapBlock(),
         scrollBlock = ScrollBlock(),
-        inputTextBlock = InputTextBlock(),
+        inputTextBlock = InputTextBlock(setClipboard = setClipboardBlock::run),
         backBlock = BackBlock(),
         pressKeyBlock = PressKeyBlock(),
         openDeepLinkBlock = OpenDeepLinkBlock(context),
@@ -173,10 +190,24 @@ class DaemonStartupFlow(
     )
     FlowyAccessibilityService.setAvailabilityListener { sendHello() }
     connect(onStatus)
+
+    // start WS watchdog after connection attempt
+    wsWatchdogBlock = WsWatchdogBlock(scheduler, wsClientAdapter)
+    wsWatchdogBlock.markAlive()
+    wsWatchdogBlock.start(
+      checkIntervalSec = 20,
+      staleThresholdSec = 45,
+      onReconnect = {
+        appendLogBlock.info("ws_watchdog_reconnect", "triggering reconnect from watchdog")
+        onStatus("reconnecting")
+        connect(onStatus)
+      },
+    )
   }
 
   fun close() {
     FlowyAccessibilityService.setAvailabilityListener(null)
+    scheduler.shutdownNow()
     if (::wsClientAdapter.isInitialized) wsClientAdapter.close()
   }
 

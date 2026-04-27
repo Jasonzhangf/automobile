@@ -15,12 +15,12 @@ import org.xml.sax.InputSource
  * 使得 FilterTargetsBlock / EvaluateAnchorBlock 可以无缝消费。
  */
 class DumpUiTreeRootBlock(
-  private val runRoot: (String) -> RootShellRunner.Result = { RootShellRunner().run(it) },
+  private val runRoot: (String, Long) -> RootShellRunner.Result = { cmd, timeoutMs -> RootShellRunner().run(cmd, timeoutMs) },
   private val now: () -> String = TimeHelper::now,
 ) {
   fun run(): AccessibilitySnapshot {
     val tmpPath = "/data/local/tmp/flowy-ui-dump.xml"
-    val result = runRoot("uiautomator dump $tmpPath && cat $tmpPath")
+    val result = runRoot("uiautomator dump $tmpPath && cat $tmpPath", 15_000)
     check(result.exitCode == 0) { "ROOT_UI_DUMP_FAILED" }
     val raw = result.stdoutText()
     val xmlContent = extractXml(raw)

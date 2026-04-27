@@ -4,7 +4,9 @@ import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.net.wifi.WifiManager
 import android.os.IBinder
+import android.os.PowerManager
 import com.flowy.explore.blocks.AppendLogBlock
 import com.flowy.explore.flows.DaemonStartupFlow
 import com.flowy.explore.flows.ReconnectFlow
@@ -19,6 +21,8 @@ class DaemonForegroundService : Service() {
   private lateinit var scheduler: ScheduledExecutorService
   private lateinit var startupFlow: DaemonStartupFlow
   private lateinit var reconnectFlow: ReconnectFlow
+  private var wakeLock: PowerManager.WakeLock? = null
+  private var wifiLock: WifiManager.WifiLock? = null
 
   override fun onCreate() {
     super.onCreate()
@@ -30,6 +34,7 @@ class DaemonForegroundService : Service() {
     startupFlow = DaemonStartupFlow(this, logStore, reconnectFlow)
     currentStatus = "created"
     appendLog.info("daemon_started", "service created")
+    acquireWakeLocks()
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -41,6 +46,7 @@ class DaemonForegroundService : Service() {
   }
 
   override fun onDestroy() {
+    releaseWakeLocks()
     startupFlow.close()
     scheduler.shutdownNow()
     currentInstance?.clear()
@@ -85,8 +91,30 @@ class DaemonForegroundService : Service() {
 
   private fun stopSelfSafely() {
     currentStatus = "stopping"
+    releaseWakeLocks()
     stopForeground(STOP_FOREGROUND_REMOVE)
     stopSelf()
+  }
+
+  private fun acquireWakeLocks() {
+    val pm = getSystemService(POWER_SERVICE) as PowerManager
+    wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "flowy:daemon").apply {
+      acquire()
+    }
+    val wm = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
+    @Suppress("DEPRECATION")
+    wifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "flowy:daemon").apply {
+      acquire()
+    }
+    appendLog.info("wakelock_acquired", "wake+wifi locks acquired")
+  }
+
+  private fun releaseWakeLocks() {
+    wakeLock?.let { if (it.isHeld) it.release() }
+    wakeLock = null
+    wifiLock?.let { if (it.isHeld) it.release() }
+    wifiLock = null
+    appendLog.info("wakelock_released", "wake+wifi locks released")
   }
 
   companion object {

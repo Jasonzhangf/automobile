@@ -20,6 +20,10 @@ class PressKeyBlockTest {
     assertEquals("input keyevent 4", block.rootCommandFor("back"))
     assertEquals("input keyevent 3", block.rootCommandFor("home"))
     assertEquals("cmd statusbar expand-notifications", block.rootCommandFor("notifications"))
+    assertEquals("input keyevent 66", block.rootCommandFor("enter"))
+    assertEquals("input keyevent 66", block.rootCommandFor("ENTER"))
+    assertEquals("input keyevent 67", block.rootCommandFor("delete"))
+    assertEquals("input keyevent 67", block.rootCommandFor("backspace"))
   }
 
   @Test
@@ -48,6 +52,6 @@ class PressKeyBlockTest {
 
   @Test(expected = IllegalStateException::class)
   fun rootCommandFor_rejectsUnsupportedKey() {
-    block.rootCommandFor("enter")
+    block.rootCommandFor("f1")
   }
 }

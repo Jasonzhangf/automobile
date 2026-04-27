@@ -20,7 +20,7 @@
 - 正式执行闭环固定为：**observe -> filter -> pre-anchor -> operation -> observe -> post-anchor**。
 - 对跨页面 / 跨 APP 的 post-anchor 校验，不能假设一次 observe 就拿到新页面；必须允许 **bounded retry / poll**，等待新的 Accessibility snapshot 收敛后再判定 post-anchor。
 - 第三方业务 APP 的正式 flow 执行时，所有用户态 operation 都必须带 **非固定节拍的随机时间间隔**；禁止用恒定间隔模拟用户操作。
-- 第三方业务 APP（如小红书、微博）的业务流程探索，必须只走**模拟用户真实操作**路径：`tap / scroll / input / back / screenshot / accessibility observe`；禁止把 `intent / deep-link / component 直开` 当成业务入口。
+- 第三方业务 APP 可用 `intent` / `open-deep-link` + `packageName` 启动入口；APP 内部页面跳转与业务操作必须走**模拟用户真实操作**路径：`tap / scroll / input / back / screenshot / observe`。唯一禁止的是在业务 APP 内使用 `JS/Auto.js`。
 - 当前已确认设备/账号约束：在小红书上，若 Flowy Accessibility Service 处于开启态，则 **搜索结果页 -> 帖子详情页** 会触发风控；关闭该 service 后手动同链路恢复正常。因此当前阶段不得把“小红书 + 开启 Accessibility 的业务操作”视为可用主路径。
 - daemon 控制面采用 **多端驱动**：控制端可在手机本机、本地桌面或远端服务之间切换；开发阶段默认先走远端控制端。
 - 手机端的操作与反馈必须统一成 **CLI + WebSocket 控制面**：手机端 WebSocket 可连接本地或远端控制端口；远端控制端口必须可被 CLI 包装，也可被 WebSocket 直接驱动。
@@ -38,8 +38,8 @@
 - 版本从 **`0.1.0001`** 起，每次编译自动 bump 四位 build number。
 - 每个**代码文件** **不得超过 500 行**；文档不受该门限约束。
 - 每次编译 **必须自动跑回归测试**。
-- 当前阶段已从实验闭环切到 **基座设计优先**；先固化基座模型，再进入正式实现。
-- `open-deep-link` 一类能力仅允许用于 **Flowy 自身 / 系统设置 / 授权页 / 调试引导**，不允许用于第三方业务 APP 的页面进入与流程推进。
+- 当前阶段已从 **基座设计** 进入 **采集骨架编码实现**；骨架状态机 v1.1 已完成（含 18 个闭环修复），下一步按 Epic 顺序逐层编码。
+- `open-deep-link` + `packageName` 可用于启动第三方业务 APP 入口；`open-deep-link` + `uri` / `component` 仅用于 **Flowy 自身 / 系统设置 / 授权页 / 调试引导**。
 
 ## 项目硬护栏
 - 无证据不宣称完成。
@@ -49,7 +49,7 @@
 - 事实进 `AGENTS.md`，探索进 `note.md`，详细结构进 `docs/architecture/*.md`。
 - 不接受任何超过 500 行的代码文件作为临时例外。
 - 不接受只编译不回归的构建流程。
-- 第三方业务 APP 禁止使用 `intent / deep-link / component` 直开与 `JS/Auto.js` 路线绕过真实用户路径；若出现风控页，必须先记录证据，再回退到纯用户态交互方案。
+- 第三方业务 APP 禁止在 APP 内使用 `JS/Auto.js`；`intent` 启动 APP 入口是允许的。若出现风控页，必须先记录证据，再调整方案。
 - 当前空目录可作为保留路径，但在实验闭环前不视为正式模块开工。
 
 ## 文档职责
@@ -64,6 +64,8 @@
 - `./docs/architecture/operation-observer-anchor-workflow.md`：正式基座的执行模型真源。
 - `./docs/architecture/app-exploration-template-spec.md`：跨 APP 页面探索模板真源。
 - `./docs/architecture/app-collection-workflow-abstraction.md`：跨 APP 内容采集 workflow 抽象真源。
+- `./docs/architecture/collection-workflow-skeleton.md`：跨 APP 采集骨架状态机真源（去重/错误回退/滚动采集/配置模型）。
+- `./docs/architecture/xhs-collection-spec.md`：小红书采集规格真源（7阶段采集/选择器/验证结果）。
 - `./docs/architecture/blocks-interface-spec.md`：blocks 最小接口真源。
 - `./docs/architecture/workspace-structure.md`：workspace 目录结构与模块落位真源。
 - `./docs/architecture/development-workflow.md`：模块开发、测试、经验沉淀流程真源。

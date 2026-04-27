@@ -9,3 +9,4 @@ artifacts/
 *.pyo
 *.apk
 *.ap_
+services/mac-daemon/flowy-mac-daemon

@@ -8,8 +8,9 @@ import org.junit.Test
 
 class InputTextBlockTest {
   @Test
-  fun run_rootEscapesTextForShellInput() {
+  fun run_rootUsesClipboardForInput() {
     val commands = mutableListOf<List<String>>()
+    var clipboardText: String? = null
     val block = InputTextBlock(
       RootShellRunner(
         candidates = listOf("su"),
@@ -18,12 +19,15 @@ class InputTextBlockTest {
           FakeProcess()
         },
       ),
+      setClipboard = { text -> clipboardText = text; true },
     )
 
-    val message = block.run(JSONObject().put("backend", "root").put("text", "a b\"c"))
+    val message = block.run(JSONObject().put("backend", "root").put("text", "露营装备"))
 
-    assertEquals("input:root:5", message)
-    assertEquals(listOf("su", "-c", "input text \"a%sb\\\"c\""), commands.single())
+    assertEquals("input:root:clipboard:4", message)
+    assertEquals("露营装备", clipboardText)
+    assertEquals(1, commands.size)
+    assert(commands[0].any { it.contains("keyevent") })
   }
 
   @Test(expected = IllegalStateException::class)

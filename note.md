@@ -1822,3 +1822,294 @@
 5. 赞数是 clickable 的 TextView，可以作为 like_entry 的入口
 
 **下一步**：进入搜索页看有什么
+
+---
+
+## XHS 搜索流程首测（2026-04-26 23:00+）
+
+### 环境
+- 设备: OP64DDL1 / PLZ110 / Android 16，root（KernelSU）
+- Flowy: `0.1.0104`
+- Accessibility: **OFF**（root-only 模式）
+- 启动方式: `adb am start -n com.xingin.xhs/.index.v2.IndexActivityV2`（冷启动/热启动均可）
+
+### 搜索流程验证
+
+| 步骤 | 操作 | 结果 | 证据 |
+|------|------|------|------|
+| 1. 启动 XHS | `am start -n com.xingin.xhs/.index.v2.IndexActivityV2` | ✅ 首页加载 | windowState: `com.xingin.xhs/.index.v2.IndexActivityV2` |
+| 2. 点击搜索按钮 | root tap `(1121,212)` — Button cd="搜索" | ✅ 进入搜索页 | windowState: `GlobalSearchActivity` |
+| 3. 输入关键词 | `input-text` root clipboard 方式粘贴 `deepseek v4` | ⚠️ **粘贴了剪贴板旧内容**（丰巢取件码），不是目标文本 | EditText 显示丰巢内容 |
+| 4. 点击搜索按钮 | root tap `(1051,226)` | ⚠️ 点击后切到了别的 APP（`com.zterm.android`），可能是输入法弹出导致坐标偏移 | windowState: `com.zterm.android` |
+
+### 关键发现
+
+1. **Clipboard+Paste 路线有问题**: `SetClipboardBlock` 写入的是 Flowy 自身进程的剪贴板，但 `input keyevent 279`（KEYCODE_PASTE）在 XHS 搜索输入框上下文中粘贴的是系统剪贴板旧内容。原因可能是：
+   - Flowy 的 `ClipboardManager.setPrimaryClip()` 对其他 APP 不可见（Android 10+ 限制后台 APP 写剪贴板）
+   - 或者时序问题：clipboard 写入后 paste 触发太快
+
+2. **坐标可能因输入法弹出而偏移**: 步骤3输入后输入法弹出，步骤4的 tap 坐标 `(1051,226)` 可能已经不在搜索按钮上了。后续需要在 dump-ui-tree-root 确认实际节点位置后再 tap。
+
+3. **搜索页 selector 稳定**:
+   - EditText: `text.startsWith("搜索") + editable=true` — 唯一
+   - 搜索按钮: `className:Button + text:"搜索"` — 唯一
+   - 返回按钮: `className:ImageView + contentDesc:"返回"`
+
+4. **搜索页 Activity**: `com.xingin.alioth.search.GlobalSearchActivity`
+
+### 下一步
+- 解决 root input text 的真正输入问题（可能需要用 `su -c` 写剪贴板，或者直接用 `input text` ASCII-only 方式）
+- 输入前先 dump-ui-tree 确认 EditText 坐标和状态
+- 输入后再次 dump-ui-tree 确认文本已填入
+- 点击搜索前确认按钮坐标（考虑输入法遮挡）
+- 完成搜索结果页 dump
+
+### AGENTS.md 规则已更新
+- `intent` 启动第三方 APP 入口现已允许（Jason 明确确认）
+- 唯一禁止：APP 内使用 `JS/Auto.js`
+
+### InputTextBlock root 输入修复（2026-04-27）
+
+**问题根因**：
+- `SetClipboardBlock` 用 Flowy app 进程的 `ClipboardManager.setPrimaryClip()` 设置剪贴板
+- Android 10+ 后台 app 调用 `setPrimaryClip()` 仅更新自身进程上下文的剪贴板
+- `input keyevent 279`（paste）以 root/shell 用户执行，读的是系统剪贴板
+- 两者不一致 → 粘贴出旧内容
+
+**Jason 指示**：
+- 剪贴板只在用之前才设，不提前设
+- 不要让系统中间污染剪贴板
+
+**修复方案（v0.1.0106）**：
+- 纯 ASCII 文本：直接走 `su -c 'input text $normalized'`，不经过剪贴板
+- Unicode 文本：`setClipboard()` → 立即 `input keyevent 279`，原子操作
+- `isPureAscii()` 判断：所有字符 code 在 0x20..0x7E 范围内
+- `deepseek v4` 是纯 ASCII，应走第一条路径
+
+**待验证**：
+- [ ] ASCII input-text 能否正确输入到 XHS 搜索框
+- [ ] 输入后 dump-ui-tree 确认 EditText 内容
+- [ ] 后续 Unicode 场景需要 root 级别设置剪贴板的方案
+
+### InputTextBlock root ASCII 输入验证成功（2026-04-27 12:00）
+
+**v0.1.0106 验证结果**：
+- `input-text` with `backend:root`, text=`deepseek v4` → **✅ 成功**
+- `input:root:11` 表示走了 ASCII 直接输入路径（`input text deepseek%sv4`）
+- dump-ui-tree-root 确认 EditText 内容为 `搜索, deepseek v4`
+- `isPureAscii()` 判断正确：空格被替换为 `%s`
+
+**完整搜索步骤验证**：
+| 步骤 | 操作 | 结果 | 证据 |
+|------|------|------|------|
+| 1. 冷启动 XHS | `am start -W -n com.xingin.xhs/.index.v2.IndexActivityV2` | ✅ | COLD launch |
+| 2. 点击搜索按钮 | root tap `(1121,212)` | ✅ 进入 GlobalSearchActivity | windowState confirmed |
+| 3. 输入 `deepseek v4` | `input-text` root ASCII | ✅ EditText 显示正确 | dump-ui-tree verified |
+
+### XHS 搜索+帖子详情全流程验证成功（2026-04-27 12:20-12:30）
+
+**版本**: v0.1.0108（PressKeyBlock 新增 ENTER/DELETE 支持）
+
+**完整搜索→详情流程**:
+
+| 步骤 | 操作 | 结果 | 证据 |
+|------|------|------|------|
+| 1. 启动 XHS | `am start -n com.xingin.xhs/.index.v2.IndexActivityV2` | ✅ | ADB intent |
+| 2. 点击搜索按钮 | `tap(1051,226)` center of Button text="搜索" | ✅ | GlobalSearchActivity |
+| 3. 输入关键词 | `input-text` root ASCII `deepseek v4` | ✅ | EditText text="搜索, deepseek v4" |
+| 4. 提交搜索 | `press-key` root key=enter | ✅ | GlobalSearchActivity, 搜索文本变为 "deepseek v4编程" |
+| 5. 点击第一个帖子卡片 | `tap(311,2550)` center of text [47] | ✅ | NoteDetailActivity |
+
+**注意**：ENTER 键提交后搜索词变成了 "deepseek v4编程"（自动补全联想词选中了第一个建议）
+
+**帖子详情页 dump（NoteDetailActivity, 62 nodes）**:
+
+| 元素 | Selector | 值 | 可操作 |
+|------|----------|-----|--------|
+| 标题 | TextView [33] | "DeepSeek V4 接入Claude Code最全教程🔥" | - |
+| 正文 | TextView [34] | 部分可见（截断，需滚动） | - |
+| 作者 | TextView [45] | "库森说AI" | - |
+| 关注按钮 | FrameLayout [46] + text="关注" | 未关注 | click=True |
+| 更多菜单 | ImageView [48] | - | click=True |
+| 图片 | FrameLayout [14] desc="图片,第1张,共16张" | 16张图 | scrollable (RecyclerView [16]) |
+| 点赞 | Button [53] desc="点赞 522" | 522次 | click=True, **未点赞** |
+| 收藏 | Button [56] desc="收藏 910" | 910次 | click=True |
+| 评论数 | Button [59] desc="评论 111" | 111条 | click=True |
+| 评论框 | TextView [52] desc="评论框" | "说点什么..." | click=True |
+
+**关键发现**:
+1. ✅ **点赞/收藏/评论的状态和数量完全可提取** — desc 属性包含 action + count
+2. ✅ **未点赞状态可通过 flags.selected 判断**（当前 selected=false）
+3. ✅ **正文文本可提取** — 直接从 TextView.text 获取
+4. ✅ **图片数量可提取** — 从 FrameLayout desc="图片,第X张,共Y张"
+5. ✅ **作者名可提取** — 从 TextView 获取
+6. ⚠️ **正文被截断** — 需要 scroll down 才能看到完整内容和评论
+7. ⚠️ **评论列表未在当前 viewport** — 需要滚动到评论区域
+8. ⚠️ **resourceId 全部被混淆** — `com.xingin.xhs:id/0_resource_name_obfuscated`，不可用于定位
+9. ⚠️ **评论列表数据** — 需要点击评论按钮或滚动到底部才能看到
+
+**下一步**:
+- [ ] 在详情页滚动查看完整正文
+- [ ] 滚动到评论区并提取评论数据
+- [ ] 测试点赞/取消点赞操作
+- [ ] 测试返回到搜索结果列表
+- [ ] 将整个流程写成标准 workflow spec
+
+
+## XHS 详情页完整验证套件 (2026-04-27 13:19-13:24)
+
+### 1. 点赞状态验证 ✅
+
+**操作路径**: 通过 flowy root tap 点击点赞按钮 → dump → 再点取消 → dump
+
+| 状态 | contentDescription | ImageView selected | 证据 artifact |
+|------|-------------------|-------------------|--------------|
+| 点赞前 | `点赞 522` | False (node[54]) | before-like |
+| 点赞后 | `已点赞523` | **True** (node[54]) | after-like |
+| 取消后 | `点赞522` | False (node[54]) | after-unlike |
+
+**关键结论**:
+- Button 的 contentDescription 区分已点赞/未点赞：已点赞用"已点赞"前缀，后面紧接数字无空格
+- ImageView.flags.selected 是状态判据（不是 Button 的 selected）
+- 点赞数自动 +1/-1 反映在 desc 数字中
+- 取消点赞后 desc 恢复为"点赞522"（注意：未点赞时"点赞 522"中间有空格，取消后变成"点赞522"无空格——这是 XHS 的显示差异，过滤时需兼容）
+
+### 2. 收藏状态验证 ✅
+
+| 状态 | contentDescription | ImageView selected |
+|------|-------------------|-------------------|
+| 收藏前 | `收藏 983` | False (node[57]) |
+| 收藏后 | `已收藏984` | **True** (node[57]) |
+
+**结论**: 与点赞完全相同的模式。"已收藏"前缀 + 数字变化 + ImageView.selected。
+
+### 3. 关注状态验证 ✅
+
+| 状态 | TextView text |
+|------|-------------|
+| 关注前 | `关注` |
+| 关注后 | `已关注` |
+
+**结论**: 直接用 text 属性区分。Button 的 text 变化，无需额外判断。
+
+### 4. 评论面板结构 ✅
+
+通过点击评论按钮(节点 cd="评论 111")打开评论面板：
+
+**面板总览** (117 nodes):
+- 标题: `共 111 条评论` (node[16])
+- 空评论提示: `有话要说，快来评论` (node[23])
+- 评论列表结构:
+  - 每条评论 = LinearLayout(avatar) + LinearLayout(name+text+time) + LinearLayout(like)
+  - 评论者名: TextView with click=True
+  - 评论内容: TextView with text + time + region + "回复"
+  - 作者回复: 有 "作者" 标签 (node[49], [80])
+  - 子回复: 点击 `展开 N 条回复` 可展开
+
+**已发现的评论**:
+| # | 用户 | 内容 | 子回复 |
+|---|------|------|--------|
+| 1 | 六水 | "老师你好 问一下这样用会封号吗？..." | 展开 3 条回复 |
+| 2 | 库森说AI(作者) | "看来好多uu还没清楚概念哈..." | - |
+| 3 | 墨绿分量 | "博主，怎么用这个搞科研论文？" | - |
+| 4 | 库森说AI(作者) | "科研论文现在有很多auto科研..." | 展开 15 条回复 |
+
+### 5. 评论点赞验证 ✅
+
+| 状态 | ImageView selected |
+|------|-------------------|
+| 点赞前 | False (node[38]) |
+| 点赞后 | **True** (node[38]) |
+| 取消后 | False (node[38]) |
+
+**结论**: 与正文点赞/收藏相同的模式。评论点赞按钮没有 contentDescription，需通过层级位置定位（每条评论右侧的 LinearLayout(clickable=True) > ImageView）。
+**重要**: 评论的点赞按钮没有数字计数，没有 contentDescription，只能通过位置关系定位。
+
+### 6. 评论搜索/定位
+
+评论面板中没有发现搜索功能入口。定位特定评论只能通过:
+- 滚动遍历 + 文本匹配
+- 不能做精确搜索
+
+### 7. 关键选择器汇总
+
+| 元素 | 定位方式 | 选择器 |
+|------|---------|--------|
+| 正文点赞 | contentDescription | `cd.startsWith("点赞") \|\| cd.startsWith("已点赞")` |
+| 正���收藏 | contentDescription | `cd.startsWith("收藏") \|\| cd.startsWith("已收藏")` |
+| 正文评论入口 | contentDescription | `cd.startsWith("评论")` |
+| 关注按钮 | text | `text == "关注" \|\| text == "已关注"` |
+| 点赞状态 | flags.selected | child ImageView (非 Button) |
+| 评论面板标题 | text | `text.startsWith("共") && text.contains("条评论")` |
+| 评论用户名 | text + click=True | 在评论区域 LinearLayout 内 |
+| 评论内容 | text | 包含评论文本的 TextView |
+| 评论点赞 | 层级关系 | 评论 LinearLayout 内最右侧 clickable LinearLayout > ImageView |
+| 展开回复 | text | `text.startsWith("展开") && text.contains("条回复")` |
+| 评论框 | contentDescription | `cd == "评论框"` |
+
+### 8. 页面元素定位策略总结
+
+**可用的定位手段**（按可靠性排序）:
+1. **contentDescription** (最可靠): 点赞/收藏/评论/评论框等操作按钮，状态变化可追踪
+2. **text** (可靠): 关注按钮、评论用户名、评论内容、展开回复等
+3. **flags.selected** (可靠): child ImageView 的选中状态，用于判断 like/fav 状态
+4. **className + 层级关系** (次可靠): 评论点赞按钮等无 desc 元素，需通过父容器位置定位
+5. **boundsInScreen** (辅助): 用于计算 tap 坐标（center = (left+right)/2, (top+bottom)/2）
+
+**不可用的定位手段**:
+- resourceId: 全部被混淆 (`0_resource_name_obfuscated`)，除极少数例外 (nickNameTV, avatarLayout, moreOperateIV)
+- 绝对坐标: 不同设备分辨率不同，不可用于生产
+
+## 评论滚动采集实验 (2026-04-27 13:32-13:38)
+
+### 实验方法
+在评论面板 (RecyclerView [0,331-1216,2444]) 中连续 scroll forward + dump，记录每屏可见文本。
+
+### 实验结果
+
+| 滚动次数 | 可见评论文本 | 新增内容 |
+|---------|------------|---------|
+| 0 (baseline) | "博主怎么用搞科研"、"auto科研工具aris"、"老师你好问封号"、"claudecode是agent" | - |
+| 1 | "不用Claude的账号限制"、"不需要用claude的账号"、"cc配的不能读图"、"V4没有读图能力" | 4条全新 |
+| 2 | "新建API再用CC添加"、"cc switch添加新api"、"终端是什么蛮好看"、"cmux+startship"、"买的coding plan吗" | 5条全新 |
+| 3-10 | 连续scroll 8次后 phone daemon 断连 (504) | 未知（中断） |
+
+### 关键发现
+
+**1. "dump 后搜索" 完全可行 ✅**
+- 每次 scroll 后 dump-ui-tree-root 拿到的是**一屏全新的评论快照**
+- 3次连续scroll的评论内容**零重叠**，确认每次是不同片段
+- 可以在 Mac 端对每屏 text 做 keyword match，命中即记录
+
+**2. "到底" 判定：三个信号**
+- **信号A (重复检测)**: scroll 后 dump 的评论 text 集合与上次完全重复 → 到底
+- **信号B (尾部标记)**: 出现 "暂时没有更多了"、"没有更多评论" 等固定文本 → 到底
+- **信号C (内容枯竭)**: scroll 后 node 总数不变，且无任何新 text 出现 → 到底
+- 注意：信号A需要对比 text hash 或 text set，不能只看 node index（index 会随滚动变化）
+
+**3. 中途加载/重试机制**
+| 故障场景 | 症状 | 恢复策略 |
+|---------|------|---------|
+| ROOT_COMMAND_TIMEOUT (504) | dump 超时，WS 断开 | force-stop → restart app → 重新进入 post detail → resume scroll |
+| scroll 后 dump 失败 | WS 返回 404 | restart app → 重新进入 → 先 dump 确认当前位置 → 继续 |
+| 网络抖动 | WS 断开但 phone app 还在 | 等 45s watchdog 自动重连；超时则 restart app |
+| 快速连续操作导致卡死 | phone app 无响应 | force-stop → restart → resume |
+
+**4. 已知问题**
+- 连续高频 scroll+dump 会导致 phone daemon 卡死（8次连续 scroll 后 504）
+- 需要在每次 scroll 后加入随机延迟 (0.8-1.5s) 避免触发
+- 评论面板 node 数量在 117-124 之间波动，说明每屏加载的评论条数略有不同
+
+**5. 搜索流程设计**
+```
+循环 (bounded by max_scrolls):
+  1. dump-ui-tree-root → 获取当前屏快照
+  2. 提取所有 text node (评论内容)
+  3. 对 text 做 keyword match → 命中则记录
+  4. 到底检测：与上屏 text set 比较
+     - 集合完全相同 → break (到底)
+     - 出现尾部标记文本 → break
+  5. scroll forward
+  6. sleep random(0.8, 1.5)
+  7. 异常恢复：dump 失败 → restart app → resume from step 1
+```

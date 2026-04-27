@@ -15,7 +15,7 @@
     "kind": "input-text",
     "backend": "root",
     "payload": {
-      "text": "deepseek v4"
+      "text": "露营装备"
     }
   },
   "anchorPolicy": {
@@ -24,7 +24,7 @@
     },
     "postAnchor": {
       "packageName": "com.xingin.xhs",
-      "mustContainTexts": ["deepseek v4"]
+      "mustContainTexts": ["露营装备"]
     }
   },
   "timingPolicy": {

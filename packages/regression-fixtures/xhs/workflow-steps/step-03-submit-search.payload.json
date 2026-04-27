@@ -19,7 +19,7 @@
   "anchorPolicy": {
     "preAnchor": {
       "packageName": "com.xingin.xhs",
-      "mustContainTexts": ["deepseek v4"]
+      "mustContainTexts": ["露营装备"]
     },
     "postAnchor": {
       "packageName": "com.xingin.xhs",
