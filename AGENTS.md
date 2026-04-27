@@ -15,6 +15,7 @@
 ## 当前确认事实
 - 主感知路线：`AccessibilityService` + `AccessibilityNodeInfo`。
 - 视觉补充路线：截图，其后再接 OCR / vision。
+- 架构支持两种执行模式：**远端编排模式**（当前，Mac Go daemon 通过 WS 编排，Android 只执行叶子操作）和**无头模式**（未来，所有编排逻辑在手机端完成，无需远端连接）。当前 blocks 层设计为 Go 代码在 Mac 侧运行，无头模式需要将相同逻辑移植到 Android Kotlin 或引入 Go mobile 编译。
 - 当前优先级：**感知 > 截图 > 归一化 > 操作**。
 - 当前实验收敛后，正式基座按 **operation + event** 架构推进。
 - 正式执行闭环固定为：**observe -> filter -> pre-anchor -> operation -> observe -> post-anchor**。
