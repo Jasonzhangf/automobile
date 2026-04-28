@@ -17,12 +17,20 @@ type ClientSession struct {
 	SendMu      sync.Mutex
 }
 
+// ActiveRun holds a reference to a currently running collection flow.
+type ActiveRun struct {
+	StopFn  func()
+	Running bool
+}
+
 type AppState struct {
 	mu           sync.RWMutex
 	clients      map[string]*ClientSession
 	pending      map[string]chan proto.ResponseEnvelope
 	artifactRoot string
 	requestSeq   atomic.Int64
+	activeRun    *ActiveRun
+	activeRunMu  sync.Mutex
 }
 
 func New(artifactRoot string) *AppState {
@@ -100,4 +108,40 @@ func (a *AppState) CancelPending(requestID string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	delete(a.pending, requestID)
+}
+
+// SetActiveRun registers a running collection flow.
+func (a *AppState) SetActiveRun(stopFn func()) {
+	a.activeRunMu.Lock()
+	defer a.activeRunMu.Unlock()
+	a.activeRun = &ActiveRun{StopFn: stopFn, Running: true}
+}
+
+// ClearActiveRun removes the active run registration.
+func (a *AppState) ClearActiveRun() {
+	a.activeRunMu.Lock()
+	defer a.activeRunMu.Unlock()
+	if a.activeRun != nil {
+		a.activeRun.Running = false
+	}
+	a.activeRun = nil
+}
+
+// StopActiveRun stops the active run if one exists. Returns true if stopped.
+func (a *AppState) StopActiveRun() bool {
+	a.activeRunMu.Lock()
+	defer a.activeRunMu.Unlock()
+	if a.activeRun != nil && a.activeRun.Running {
+		a.activeRun.StopFn()
+		a.activeRun.Running = false
+		return true
+	}
+	return false
+}
+
+// HasActiveRun returns true if a collection flow is running.
+func (a *AppState) HasActiveRun() bool {
+	a.activeRunMu.Lock()
+	defer a.activeRunMu.Unlock()
+	return a.activeRun != nil && a.activeRun.Running
 }

@@ -2365,3 +2365,11 @@ LinearLayout(clickable=true) [right side, right-aligned]
 - 评论点赞检测：LinearLayout(clickable, left>1000) + child ImageView.selected + child TextView(count)
 - 子回复展开："展开 N 条回复" 节点点击后，新的子回复节点出现在 flat dump 中
 - 所有 Go 测试通过，git push 完成
+
+## 2026-04-28 测试环境恢复
+
+### 断连后恢复流程
+- WS 在 12:12:21 断开（2h48min 稳定后）
+- 设备仍在线：`adb devices` 确认 `100.127.23.27:1234`
+- 重启 Mac daemon + 重装/重启 Android app
+- 注意：每次 daemon 重启后需重新 build + install APK（旧 binary 可能丢失）

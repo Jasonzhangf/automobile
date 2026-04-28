@@ -45,6 +45,9 @@ type FlowContext struct {
 	runDeadline    time.Time // zero = no run timeout
 	detailDeadline time.Time // zero = no detail timeout
 	detailStart    time.Time // when current detail phase started
+	// Graceful stop
+	stopCh chan struct{}
+	stopped bool
 }
 
 // NewFlowContext creates a new flow context.
@@ -69,6 +72,7 @@ func NewFlowContext(
 		Dedup:        dedup,
 		State:        StateInit,
 		Results:      []CollectionResult{},
+		stopCh:       make(chan struct{}),
 	}, nil
 }
 
@@ -76,6 +80,9 @@ func NewFlowContext(
 
 // Run executes the full collection flow state machine.
 func (fc *FlowContext) Run() CollectionRunResult {
+	// Allow external stop
+	defer func() { fc.stopped = true }()
+
 	backend := blocks.OperationBackend(fc.Config.Backend)
 	if backend == "" {
 		backend = blocks.BackendRoot
@@ -91,6 +98,14 @@ func (fc *FlowContext) Run() CollectionRunResult {
 
 	maxIters := fc.Config.TargetCount*5 + 20 // safety bound
 	for i := 0; i < maxIters; i++ {
+		// Check graceful stop
+		select {
+		case <-fc.stopCh:
+			fc.Error = fmt.Errorf("stopped by user")
+			return fc.buildResult("stopped")
+		default:
+		}
+
 		// Check run timeout
 		if !fc.runDeadline.IsZero() && time.Now().After(fc.runDeadline) {
 			fc.Error = fmt.Errorf("run timeout after %dms", fc.Config.RunTimeoutMs)
@@ -455,4 +470,16 @@ func (fc *FlowContext) buildResult(status string) CollectionRunResult {
 		Items:        fc.Results,
 		Error:        errMsg,
 	}
+}
+
+// Stop signals the flow to stop gracefully after the current iteration.
+func (fc *FlowContext) Stop() {
+	if !fc.stopped {
+		close(fc.stopCh)
+	}
+}
+
+// IsActive returns true if the flow is still running.
+func (fc *FlowContext) IsActive() bool {
+	return !fc.stopped
 }

@@ -47,6 +47,10 @@ func CollectionRunHandler(app *state.AppState) http.HandlerFunc {
 			return
 		}
 
+		// Register active run for graceful stop
+		app.SetActiveRun(fc.Stop)
+		defer app.ClearActiveRun()
+
 		result := fc.Run()
 
 		// Write result to artifact dir
