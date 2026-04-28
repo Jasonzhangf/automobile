@@ -2279,3 +2279,51 @@ WS 连接每 ~25 秒断开一次（`i/o timeout` → `readDeadline` 到期），
 ### 部署清单
 - Mac daemon: `services/mac-daemon/flowy-mac-daemon` (Go binary)
 - Android APK: `explore/android-daemon-lab/app/build/outputs/apk/debug/app-debug.apk` (v0.1.0108)
+
+## 2026-04-28 设计原则：WS 长连接复用
+
+### 原则
+WS 连接一旦建立，必须作为**长连接**保持，所有 command 复用同一条链路：
+- Mac daemon 不主动关闭已建立的 WS 连接
+- Android 端不因空闲而断开（keepalive + ping 保活）
+- 所有操作（ping / observe / tap / scroll / dump 等）都通过同一条 WS 发送
+- 仅在连接真正异常时（readDeadline 超时 / TCP 断开）才触发重连
+
+### 当前实现
+- **Server（Mac）**：`keepaliveInterval=25s` 发文本帧，`readDeadline=180s` 安全网，`PingHandler` 重置 deadline
+- **Client（Android）**：OkHttp `pingInterval=15s`，`WsWatchdogBlock` `staleThresholdSec=45s` 仅在真正 stale 时重连
+- 验证结果：09:24:44 → 10:22+ 稳定无断开（58min+）
+
+## 2026-04-28 ToggleActionBlock 真机验证
+
+### 测试场景：XHS 详情页 like/collect/follow
+- **流程**：launch XHS → tap 搜索 → input 关键词 → tap 搜索按钮 → tap 第一个卡片 → 进入详情页
+
+### 验证结果
+| 动作 | 初始状态 | 操作后 | 检测方法 | 结果 |
+|------|----------|--------|----------|------|
+| 点赞 | "点赞 8" | "已点赞9" | cd desc 变化 + count+1 | ✅ |
+| 收藏 | "收藏 3" | "已收藏4" | cd desc 变化 + count+1 | ✅ |
+| 关注 | "关注" | "已关注" | text 变化 | ✅ |
+| 取消点赞 | "已点赞9" | "点赞8" | cd 恢复 | ✅ |
+| 取消收藏 | "已收藏4" | "收藏 3" | cd 恢复 | ✅ |
+| 取消关注 | "已关注" | "关注" | text 恢复 | ✅ |
+
+### 状态检测规律
+- **点赞/收藏**：用 `contentDescription` 区分状态
+  - 未操作：`"点赞 N"` / `"收藏 N"`（有空格）
+  - 已操作：`"已点赞N"` / `"已收藏N"`（无空格）
+- **关注**：用 `text` 区分状态
+  - 未关注：`"关注"`
+  - 已关注：`"已关注"`
+- **selected flag 不可靠**：Button 自身 selected=false，child ImageView 的 selected=true
+- **count 变化**：点赞/收藏后 count+1，取消后 count-1（可能不准，实际 9→8）
+
+### 真机操作路径
+搜索结果页卡片的 cd 为空（不同于主页），用 `FrameLayout + longClickable` 定位。
+详情页用 `descContains="点赞"` 或 `descContains="收藏"` 或 `text="关注"` 定位按钮。
+
+### 实现
+- 文件：`services/mac-daemon/src/blocks/toggle_action_block.go`（161 行）
+- 测试：`services/mac-daemon/src/blocks/toggle_action_block_test.go`
+- 接口：`ToggleActionBlock(session, app, artifactRoot, action, desired, backend, timeoutMs) → (*ToggleResult, error)`
