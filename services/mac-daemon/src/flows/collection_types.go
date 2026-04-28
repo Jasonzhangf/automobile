@@ -22,6 +22,9 @@ type CollectionConfig struct {
 	EnableComments bool          `json:"enableComments,omitempty"`
 	MaxComments   int            `json:"maxComments,omitempty"`   // 0 = unlimited
 	Backend       string         `json:"backend"`                 // "accessibility" or "root"
+	// Timeouts
+	RunTimeoutMs    int `json:"runTimeoutMs,omitempty"`    // total run timeout (0 = no limit)
+	DetailTimeoutMs int `json:"detailTimeoutMs,omitempty"` // per-detail timeout (0 = 120s default)
 }
 
 // CollectionProfile describes app-specific selectors and anchors.

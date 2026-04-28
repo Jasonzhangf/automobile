@@ -41,6 +41,10 @@ type FlowContext struct {
 	ScrollRetries int
 	DetailRetries int
 	Error         error
+	// Timeouts
+	runDeadline    time.Time // zero = no run timeout
+	detailDeadline time.Time // zero = no detail timeout
+	detailStart    time.Time // when current detail phase started
 }
 
 // NewFlowContext creates a new flow context.
@@ -77,8 +81,28 @@ func (fc *FlowContext) Run() CollectionRunResult {
 		backend = blocks.BackendRoot
 	}
 
+	// Set up timeouts
+	if fc.Config.DetailTimeoutMs <= 0 {
+		fc.Config.DetailTimeoutMs = 120000 // 120s default
+	}
+	if fc.Config.RunTimeoutMs > 0 {
+		fc.runDeadline = time.Now().Add(time.Duration(fc.Config.RunTimeoutMs) * time.Millisecond)
+	}
+
 	maxIters := fc.Config.TargetCount*5 + 20 // safety bound
 	for i := 0; i < maxIters; i++ {
+		// Check run timeout
+		if !fc.runDeadline.IsZero() && time.Now().After(fc.runDeadline) {
+			fc.Error = fmt.Errorf("run timeout after %dms", fc.Config.RunTimeoutMs)
+			return fc.buildResult("aborted")
+		}
+		// Check per-detail timeout
+		if fc.State == StateDetailTask || fc.State == StateEnterDetail || fc.State == StateBackToList {
+			if !fc.detailDeadline.IsZero() && time.Now().After(fc.detailDeadline) {
+				fc.skipCurrentItem("detail_timeout")
+				continue
+			}
+		}
 		switch fc.State {
 		case StateInit:
 			fc.stateInit()
@@ -223,6 +247,10 @@ func (fc *FlowContext) stateEnterDetail(backend blocks.OperationBackend) {
 		fc.State = StatePickNext
 		return
 	}
+
+	// Start detail timeout tracking
+	fc.detailStart = time.Now()
+	fc.detailDeadline = time.Now().Add(time.Duration(fc.Config.DetailTimeoutMs) * time.Millisecond)
 
 	// Pre-anchor: verify still on list
 	// (skipped here to avoid excessive observe; the fact we just picked means we're on list)

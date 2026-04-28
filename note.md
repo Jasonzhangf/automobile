@@ -2359,3 +2359,9 @@ LinearLayout(clickable=true) [right side, right-aligned]
 - bounds: [290, 1723, 618, 1821]
 - 点击后子回复展开，新增节点出现在 dump 中
 - 可以像主评论一样提取子回复内容和点赞状态
+
+### flowy-21/22 完成总结
+- CommentLikeBlock + DetectCommentLikes 实现（191行 + 4 测试）
+- 评论点赞检测：LinearLayout(clickable, left>1000) + child ImageView.selected + child TextView(count)
+- 子回复展开："展开 N 条回复" 节点点击后，新的子回复节点出现在 flat dump 中
+- 所有 Go 测试通过，git push 完成
