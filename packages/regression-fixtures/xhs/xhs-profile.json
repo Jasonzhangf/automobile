@@ -1,0 +1,80 @@
+{
+  "appId": "xhs",
+  "packageName": "com.xingin.xhs",
+  "listAnchor": {
+    "mustContainTexts": ["搜索"],
+    "minNodeCount": 50
+  },
+  "searchResultAnchor": {
+    "mustContainTexts": [],
+    "minNodeCount": 40
+  },
+  "detailAnchor": {
+    "mustContainTexts": ["点赞"],
+    "minNodeCount": 30
+  },
+  "itemFilter": {
+    "filterId": "xhs_search_card",
+    "kind": "card_like",
+    "className": "android.widget.FrameLayout",
+    "longClickable": true,
+    "hasBounds": true,
+    "selectStrategy": "top_most"
+  },
+  "detailFields": [
+    {
+      "name": "body_text",
+      "source": "text",
+      "filter": {
+        "filterId": "xhs_body",
+        "kind": "text",
+        "className": "android.widget.TextView",
+        "minTextLength": 30,
+        "selectStrategy": "longest_text"
+      }
+    },
+    {
+      "name": "like_count",
+      "source": "contentDescription",
+      "filter": {
+        "filterId": "xhs_like",
+        "kind": "actionable",
+        "descContains": "点赞"
+      }
+    },
+    {
+      "name": "collect_count",
+      "source": "contentDescription",
+      "filter": {
+        "filterId": "xhs_collect",
+        "kind": "actionable",
+        "descContains": "收藏"
+      }
+    },
+    {
+      "name": "comment_count",
+      "source": "contentDescription",
+      "filter": {
+        "filterId": "xhs_comment",
+        "kind": "actionable",
+        "descContains": "评论"
+      }
+    }
+  ],
+  "commentAnchor": {
+    "mustContainTexts": [],
+    "minNodeCount": 20
+  },
+  "selectors": {
+    "searchButton": { "descContains": "搜索" },
+    "searchInput": { "className": "android.widget.EditText" },
+    "searchSubmit": { "className": "android.widget.Button", "textContains": "搜索" },
+    "likeButton": { "descContains": "点赞" },
+    "likedButton": { "descContains": "已点赞" },
+    "collectButton": { "descContains": "收藏" },
+    "collectedButton": { "descContains": "已收藏" },
+    "commentBox": { "descContains": "评论框" },
+    "followButton": { "textContains": "关注" },
+    "followedButton": { "textContains": "已关注" }
+  }
+}

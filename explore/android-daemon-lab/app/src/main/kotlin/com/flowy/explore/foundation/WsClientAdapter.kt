@@ -1,6 +1,7 @@
 package com.flowy.explore.foundation
 
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -18,22 +19,29 @@ class WsClientAdapter(
   private val onFailure: (Throwable) -> Unit,
 ) {
   private var socket: WebSocket? = null
-
-  @Volatile private var suppressCloseCallback = false
+  /** Monotonically increasing generation. Each connect() increments it.
+   *  Callbacks from a socket whose generation doesn't match current are ignored. */
+  private val generation = AtomicInteger(0)
 
   fun connect(url: String) {
-    suppressCloseCallback = true
-    socket?.close(1000, "reconnect")
+    val gen = generation.incrementAndGet()
+    val old = socket
     socket = null
-    suppressCloseCallback = false
+    old?.close(1000, "reconnect")
     val request = Request.Builder().url(url).build()
     socket = client.newWebSocket(request, object : WebSocketListener() {
-      override fun onOpen(webSocket: WebSocket, response: Response) = onOpen()
-      override fun onMessage(webSocket: WebSocket, text: String) = onMessage(text)
-      override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-        if (!suppressCloseCallback) onClosing()
+      override fun onOpen(webSocket: WebSocket, response: Response) {
+        if (generation.get() == gen) onOpen()
       }
-      override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) = onFailure(t)
+      override fun onMessage(webSocket: WebSocket, text: String) {
+        if (generation.get() == gen) onMessage(text)
+      }
+      override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+        if (generation.get() == gen) onClosing()
+      }
+      override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+        if (generation.get() == gen) onFailure(t)
+      }
     })
   }
 

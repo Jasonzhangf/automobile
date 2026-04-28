@@ -10,8 +10,8 @@ type RunClientFunc func(*websocket.Conn)
 
 func WSAcceptHandler(runClient RunClientFunc) http.HandlerFunc {
 	upgrader := websocket.Upgrader{
-		ReadBufferSize:  4096,
-		WriteBufferSize: 4096,
+		ReadBufferSize:  256 * 1024,
+		WriteBufferSize: 256 * 1024,
 		CheckOrigin:     func(*http.Request) bool { return true },
 	}
 

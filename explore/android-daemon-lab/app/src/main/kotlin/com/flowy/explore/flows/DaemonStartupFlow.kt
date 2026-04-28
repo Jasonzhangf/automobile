@@ -79,17 +79,27 @@ class DaemonStartupFlow(
       },
       onMessage = { message ->
         if (::wsWatchdogBlock.isInitialized) wsWatchdogBlock.markAlive()
-        wsSessionFlow(
-          pingFlow,
-          fetchLogsFlow,
-          screenshotCaptureFlow,
-          accessibilityDumpFlow,
-          rootScreenshotCaptureFlow,
-          rootWindowStateFlow,
-          dumpUiTreeRootFlow,
-          operationRunFlow,
-          workflowStepFlow,
-        ).onMessage(message)
+        // Ignore keepalive frames from server — they have no requestId/command
+        val isKeepalive = try {
+          org.json.JSONObject(message).optString("type") == "keepalive"
+        } catch (_: Throwable) { false }
+        if (!isKeepalive) {
+          try {
+            wsSessionFlow(
+              pingFlow,
+              fetchLogsFlow,
+              screenshotCaptureFlow,
+              accessibilityDumpFlow,
+              rootScreenshotCaptureFlow,
+              rootWindowStateFlow,
+              dumpUiTreeRootFlow,
+              operationRunFlow,
+              workflowStepFlow,
+            ).onMessage(message)
+          } catch (t: Throwable) {
+            appendLogBlock.error("ws_message_error", "failed to handle: ${t.message}")
+          }
+        }
       },
       onClosing = {
         onStatus("closing")

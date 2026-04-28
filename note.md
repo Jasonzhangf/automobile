@@ -2168,3 +2168,114 @@ XHS 搜索 → 进入帖子详情 → 点赞/取消 → 返回列表
 
 ### 结论
 L4 E2E 闭环验证通过。采集骨架的所有基础操作（launch/dump/tap/input/back）在 root 模式下均可正常工作。
+
+## 2026-04-27 22:00 — Epic2 + Epic3 实现记录
+
+### 已实现模块
+
+| 文件 | 行数 | 职责 | 测试 |
+|------|------|------|------|
+| `foundation/comment_extractor.go` | 115 | 从扁平 UI dump 提取评论（作者/内容/时间） | 6 单测 ✅ |
+| `foundation/comment_extractor_test.go` | 104 | ExtractComments + isNumericOnly | |
+| `foundation/bottom_detector.go` | 118 | 三信号到底检测 | 7 单测 ✅ |
+| `foundation/bottom_detector_test.go` | 101 | SignalA/B/C + 空输入 + rounds | |
+| `blocks/scroll_collect_block.go` | 139 | 滚动采集循环（observe→extract→detect→scroll） | 编译通过 ✅ |
+| `blocks/recovery_block.go` | 174 | HealthCheck + RestartApp + RecoverSession | 编译通过 ✅ |
+| `flows/checkpoint_helper.go` | 61 | WriteFlowCheckpoint + LoadFlowCheckpoint | 编译通过 ✅ |
+
+### 关闭的 bd 任务
+- flowy-12: ScrollAndCollectBlock ✅
+- flowy-13: BottomDetector ✅
+- flowy-14: CommentExtractor ✅
+- flowy-15: RecoveryBlock ✅
+- flowy-16: DedupStore 已有实现确认 ✅
+- flowy-17: Checkpoint foundation ✅
+- flowy-18: Resume from checkpoint ✅
+- flowy-19: List position recovery ✅
+
+### CommentExtractor 实现细节
+- 基于启发式分组：短文本（<20字）无标点 → 作者；长文本 → 评论内容
+- 跳过 UI labels: 赞/回复/分享/举报/展开/收起/查看更多回复/暂时没有更多了
+- 跳过纯数字文本（计数）和时间文本（N天前/N小时前）
+- flush 逻辑：遇到新作者时先 flush 上一条
+
+### BottomDetector 三信号
+| 信号 | 方法 | 置信度 |
+|------|------|--------|
+| SignalA: text_repeated | 当前屏 text set hash 与上屏完全一致 | 高 |
+| SignalB: tail_marker | 出现 "暂时没有更多了" 等固定文本 | 最高 |
+| SignalC: no_new_text | node 数不变且零新 text | 中 |
+
+- 第一轮永远返回 not bottom（记录 baseline）
+- textSetHash 使用 sort + sha256 保证确定性
+
+### RecoveryBlock 恢复策略
+1. HealthCheck（ping） → 如果 OK 则无需恢复
+2. 等待 WS 自动重连（手机端 watchdog 触发）
+3. 等不到则 RestartApp（adb force-stop + am start）
+4. 再等 WS 重连
+5. 最多重试 MaxRetries 次（默认 3）
+
+### XHS profile 验证结果（真机验证）
+- **主页锚点** `descContains="搜索"`: ✅ 始终有效
+- **搜索输入框** `className=EditText`: ✅ 在 GlobalSearchActivity 页面有效
+- **搜索提交按钮** `className=Button, textContains="搜索"`: ✅ 有效
+- **搜索结果卡片** `className=FrameLayout, longClickable=true, hasBounds=true`: ✅ 有效
+  - 注意：搜索结果页卡片**没有 contentDescription**，主页有
+  - 用 height>500px 进一步过滤非内容卡片（标签区域 h≈154）
+- **详情页 like** `descContains="点赞"`: ✅ desc="点赞 N" / 已点赞时 "已点赞N"
+- **详情页 collect** `descContains="收藏"`: ✅ 同上
+- **详情页 body_text** `className=TextView, minTextLength=30`: ✅ 可提取正文
+- **详情页 comment** `descContains="评论"`: ✅ 有计数
+
+### 关键发现更新
+- **XHS 主页 vs 搜索结果页的卡片差异**：主页卡片有 `contentDescription`（"笔记 xxx 来自 yyy N赞"），搜索结果页卡片**没有**
+- **搜索结果页实际节点数**：119 nodes（不是 50）
+- **searchResultAnchor 不需要 mustContainTexts**，只靠 node 数量即可
+- **like 状态**：desc 文本从 "点赞 21" 变为 "已点赞22"（中间无空格），count+1
+- **WS 连接稳定性**：重启 daemon + force-stop app 后 WS 在 5s 内自动重连
+
+### 当前 XHS profile 文件
+`packages/regression-fixtures/xhs/xhs-profile.json`
+- appId: xhs
+- listAnchor: mustContainTexts=["搜索"], minNodeCount=50
+- detailAnchor: mustContainTexts=["点赞"], minNodeCount=30
+- itemFilter: FrameLayout + longClickable + hasBounds
+- selectors: searchButton, searchInput, searchSubmit, likeButton, likedButton, collectButton, collectedButton, commentBox
+- detailFields: body_text, like_count, collect_count, comment_count
+
+## 2026-04-28 WS 连接稳定性修复
+
+### 问题
+WS 连接每 ~25 秒断开一次（`i/o timeout` → `readDeadline` 到期），然后立刻重连，形成快速循环。
+
+### 根因分析
+1. **Mac daemon（gorilla/websocket）** 设了 `readDeadline=180s`
+2. **Android OkHttp** 每 15s 发 WS Ping frame
+3. gorilla 默认 `PingHandler` 自动回复 Pong，但这只在底层 TCP 处理，**不会**让 `ReadMessage()` 返回
+4. 因此 `ReadMessage()` 阻塞，`readDeadline` 到期 → 连接被判定 dead → 断开
+
+### 修复
+1. **Mac daemon** `client_session_flow.go`：
+   - 显式 `SetPingHandler`：收到 Ping 时重置 `readDeadline` + 手动发 Pong
+   - `SetPongHandler`：收到 Pong 时也重置 `readDeadline`
+   - `keepaliveInterval=25s`：发 app-level `{"type":"keepalive"}` 文本帧
+   - `readDeadline=180s`：dead connection 安全网
+2. **Android** `DaemonStartupFlow.kt`：
+   - `onMessage` 过滤 `{"type":"keepalive"}` 帧（无 requestId/command，会导致 WsSessionFlow crash）
+   - try-catch 包裹 `wsSessionFlow.onMessage()` 防止异常导致连接断开
+3. **Android** `WsClientAdapter.kt`：
+   - 用 `AtomicInteger generation` 替代 `@Volatile suppressCloseCallback`
+   - 每次 `connect()` 递增 generation，回调只匹配当前 generation
+   - 解决旧连接的回调污染新连接的 race condition
+4. **Mac daemon** `ws_accept.go`：buffer 256KB（之前已改）
+
+### 验证结果
+- 连接持续 5+ 分钟无断开（09:24:44 → 09:29:48+）
+- 之前每 25 秒断一次
+- keepalive 帧正确过滤，Android 端无 crash
+- 客户端列表正常显示
+
+### 部署清单
+- Mac daemon: `services/mac-daemon/flowy-mac-daemon` (Go binary)
+- Android APK: `explore/android-daemon-lab/app/build/outputs/apk/debug/app-debug.apk` (v0.1.0108)
