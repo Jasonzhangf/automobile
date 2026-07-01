@@ -6,7 +6,6 @@ import (
 
 	"flowy/services/mac-daemon/src/blocks"
 	"flowy/services/mac-daemon/src/foundation"
-	"flowy/services/mac-daemon/src/proto"
 	"flowy/services/mac-daemon/src/state"
 )
 
@@ -162,8 +161,8 @@ func (fc *FlowContext) stateListEntry(backend blocks.OperationBackend) {
 
 func (fc *FlowContext) stateListEntrySearch(backend blocks.OperationBackend) {
 	// 1. Launch app via intent
-	fc.sendOpenDeepLink(fc.Profile.PackageName)
-	fc.jitterSleep()
+	fc.sendCommandToDevice("open-deep-link", map[string]any{"packageName": fc.Profile.PackageName})
+	time.Sleep(foundation.OperationDelay())
 
 	// 2. Pre-anchor: verify we're on the main page
 	if !fc.anchorCheck(fc.Profile.ListAnchor, "list_entry_pre") {
@@ -185,7 +184,7 @@ func (fc *FlowContext) stateListEntrySearch(backend blocks.OperationBackend) {
 			return
 		}
 	}
-	fc.jitterSleep()
+	time.Sleep(foundation.OperationDelay())
 
 	// 4. Input keyword
 	if err := blocks.InputTextBlock(fc.Session, fc.App, fc.Config.Keyword, backend, 10000); err != nil {
@@ -193,11 +192,11 @@ func (fc *FlowContext) stateListEntrySearch(backend blocks.OperationBackend) {
 		fc.Error = fmt.Errorf("input keyword: %w", err)
 		return
 	}
-	fc.jitterSleep()
+	time.Sleep(foundation.OperationDelay())
 
 	// 5. Press enter
-	fc.sendPressKey(66, backend) // KEYCODE_ENTER
-	fc.jitterSleep()
+	fc.sendCommandToDevice("press-key", map[string]any{"keyCode": 66, "backend": backend})
+	time.Sleep(foundation.OperationDelay())
 
 	// 6. Post-anchor: verify we're on search results
 	if !fc.anchorCheck(fc.Profile.ListAnchor, "list_entry_post") {
@@ -210,8 +209,8 @@ func (fc *FlowContext) stateListEntrySearch(backend blocks.OperationBackend) {
 }
 
 func (fc *FlowContext) stateListEntryTimeline(backend blocks.OperationBackend) {
-	fc.sendOpenDeepLink(fc.Profile.PackageName)
-	fc.jitterSleep()
+	fc.sendCommandToDevice("open-deep-link", map[string]any{"packageName": fc.Profile.PackageName})
+	time.Sleep(foundation.OperationDelay())
 
 	if !fc.anchorCheck(fc.Profile.ListAnchor, "list_entry_timeline") {
 		fc.State = StateError
@@ -234,7 +233,7 @@ func (fc *FlowContext) statePickNext() {
 	selected, _ := foundation.SelectTargets(matches, "top_most")
 
 	for _, m := range selected {
-		itemID := fc.computeItemID(m)
+		itemID := fc.itemIDFromMatch(m)
 		if !fc.Dedup.Contains(itemID) {
 			fc.CurrentItem = &m
 			fc.State = StateEnterDetail
@@ -253,7 +252,7 @@ func (fc *FlowContext) statePickNext() {
 	// Scroll forward
 	blocks.ScrollBlock(fc.Session, fc.App, fc.ArtifactRoot,
 		blocks.ScrollTarget{}, "forward", blocks.BackendRoot, 10000)
-	fc.jitterSleep()
+	time.Sleep(foundation.OperationDelay())
 	fc.State = StatePickNext // re-enter to look again
 }
 
@@ -280,11 +279,11 @@ func (fc *FlowContext) stateEnterDetail(backend blocks.OperationBackend) {
 			fc.skipCurrentItem("tap_failed")
 			return
 		}
-		fc.jitterSleep()
+		time.Sleep(foundation.OperationDelay())
 		fc.State = StateEnterDetail
 		return
 	}
-	fc.jitterSleep()
+	time.Sleep(foundation.OperationDelay())
 
 	// Post-anchor: verify entered detail
 	if !fc.anchorCheck(fc.Profile.DetailAnchor, "enter_detail_post") {
@@ -293,7 +292,7 @@ func (fc *FlowContext) stateEnterDetail(backend blocks.OperationBackend) {
 			fc.skipCurrentItem("detail_anchor_failed")
 			return
 		}
-		fc.jitterSleep()
+		time.Sleep(foundation.OperationDelay())
 		fc.State = StateBackToList
 		return
 	}
@@ -312,7 +311,7 @@ func (fc *FlowContext) stateDetailTask(backend blocks.OperationBackend) {
 
 	// 2. Extract fields
 	result := CollectionResult{
-		ItemID:      fc.computeItemID(*fc.CurrentItem),
+		ItemID:      fc.itemIDFromMatch(*fc.CurrentItem),
 		CollectedAt: time.Now().Format(time.RFC3339),
 		Fields:      make(map[string]string),
 	}
@@ -339,18 +338,18 @@ func (fc *FlowContext) stateDetailTask(backend blocks.OperationBackend) {
 func (fc *FlowContext) stateBackToList(backend blocks.OperationBackend) {
 	if err := blocks.BackBlock(fc.Session, fc.App, backend, 10000); err != nil {
 		// back failed — try restarting app
-		fc.sendOpenDeepLink(fc.Profile.PackageName)
-		fc.jitterSleep()
+		fc.sendCommandToDevice("open-deep-link", map[string]any{"packageName": fc.Profile.PackageName})
+		time.Sleep(foundation.OperationDelay())
 		fc.State = StateCheckContinue
 		return
 	}
-	fc.jitterSleep()
+	time.Sleep(foundation.OperationDelay())
 
 	// Post-anchor: verify back on list
 	if !fc.anchorCheck(fc.Profile.ListAnchor, "back_to_list") {
 		// try one more back
 		blocks.BackBlock(fc.Session, fc.App, backend, 10000)
-		fc.jitterSleep()
+		time.Sleep(foundation.OperationDelay())
 	}
 
 	fc.CurrentItem = nil
@@ -368,118 +367,3 @@ func (fc *FlowContext) stateCheckContinue() {
 
 // --- Helpers -------------------------------------------------------------
 
-func (fc *FlowContext) anchorCheck(spec foundation.AnchorSpec, label string) bool {
-	result, err := blocks.AnchorBlock(fc.Session, fc.App, fc.ArtifactRoot,
-		spec, blocks.DefaultAnchorConfig())
-	if err != nil || !result.Matched {
-		return false
-	}
-	return true
-}
-
-func (fc *FlowContext) jitterSleep() {
-	time.Sleep(foundation.OperationDelay())
-}
-
-func (fc *FlowContext) sendOpenDeepLink(packageName string) {
-	// Use open-deep-link command to launch app
-	cmd := fc.makeCommand("open-deep-link", map[string]any{
-		"packageName": packageName,
-	})
-	blocks.CommandRoundtrip(fc.Session, fc.App, cmd)
-}
-
-func (fc *FlowContext) sendPressKey(keyCode int, backend blocks.OperationBackend) {
-	cmd := fc.makeCommand("press-key", map[string]any{
-		"keyCode": keyCode,
-		"backend": string(backend),
-	})
-	blocks.CommandRoundtrip(fc.Session, fc.App, cmd)
-}
-
-func (fc *FlowContext) makeCommand(command string, payload map[string]any) proto.CommandEnvelope {
-	now := time.Now()
-	return proto.CommandEnvelope{
-		ProtocolVersion: "exp01",
-		RequestID:       foundation.NewRequestID(now, fc.App.NextRequestSeq()),
-		RunID:           foundation.NewRunID(now, command, "collection-flow"),
-		Command:         command,
-		SentAt:          now.Format(time.RFC3339),
-		TimeoutMs:       15000,
-		Payload:         payload,
-	}
-}
-
-func (fc *FlowContext) computeItemID(m foundation.MatchResult) string {
-	text := m.Node.Text
-	if text == "" {
-		text = m.Node.ContentDescription
-	}
-	return foundation.ItemIDFromTitle(text)
-}
-
-func (fc *FlowContext) extractField(nodes []foundation.UiNode, field DetailField) string {
-	if field.Filter != nil {
-		matches := foundation.MatchNodes(nodes, *field.Filter)
-		if len(matches) > 0 {
-			node := matches[0].Node
-			switch field.Source {
-			case "contentDescription":
-				return node.ContentDescription
-			default:
-				return node.Text
-			}
-		}
-	}
-	return ""
-}
-
-func (fc *FlowContext) skipCurrentItem(reason string) {
-	if fc.CurrentItem != nil {
-		fc.Results = append(fc.Results, CollectionResult{
-			ItemID:      fc.computeItemID(*fc.CurrentItem),
-			CollectedAt: time.Now().Format(time.RFC3339),
-			Fields:      map[string]string{"_skip_reason": reason},
-		})
-	}
-	fc.CurrentItem = nil
-	fc.DetailRetries = 0
-	fc.State = StateBackToList
-}
-
-func (fc *FlowContext) buildResult(status string) CollectionRunResult {
-	success, skipped, failed := 0, 0, 0
-	for _, r := range fc.Results {
-		if _, hasSkip := r.Fields["_skip_reason"]; hasSkip {
-			skipped++
-		} else {
-			success++
-		}
-	}
-	errMsg := ""
-	if fc.Error != nil {
-		errMsg = fc.Error.Error()
-		failed = 1
-	}
-	return CollectionRunResult{
-		Status:       status,
-		TotalItems:   len(fc.Results),
-		SuccessItems: success,
-		SkippedItems: skipped,
-		FailedItems:  failed,
-		Items:        fc.Results,
-		Error:        errMsg,
-	}
-}
-
-// Stop signals the flow to stop gracefully after the current iteration.
-func (fc *FlowContext) Stop() {
-	if !fc.stopped {
-		close(fc.stopCh)
-	}
-}
-
-// IsActive returns true if the flow is still running.
-func (fc *FlowContext) IsActive() bool {
-	return !fc.stopped
-}
