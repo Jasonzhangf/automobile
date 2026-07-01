@@ -103,7 +103,7 @@ var defaultSpecValidator = NewSpecValidator()
 // DefaultSpecValidator returns the package-level spec validator.
 func DefaultSpecValidator() *SpecValidator { return defaultSpecValidator }
 
-// MarshalJSON is a helper to confirm JSON output is parseable.
-func (v *SpecValidator) MarshalJSON(spec any) ([]byte, error) {
+// MustMarshalJSON is a helper to confirm JSON output is parseable.
+func (v *SpecValidator) MustMarshalJSON(spec any) ([]byte, error) {
 	return json.Marshal(spec)
 }
