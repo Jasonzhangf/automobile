@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "status": "seed",
+  "lifecycles": [
+    {
+      "lifecycle_id": "flowy.command_dispatch",
+      "nodes": [
+        { "node_id": "HttpReq01DispatchRequest", "label": "HTTP Dispatch Request", "type": "entrypoint", "owner_feature": "feature.command_dispatch" },
+        { "node_id": "FlowyReq01CommandEnvelopeBuilt", "label": "Command Envelope Built", "type": "internal", "owner_feature": "feature.command_dispatch" },
+        { "node_id": "FlowyReq02SessionResolved", "label": "Session Resolved", "type": "internal", "owner_feature": "state.app_management" },
+        { "node_id": "FlowyReq03PendingRegistered", "label": "Pending Registered", "type": "internal", "owner_feature": "state.app_management" },
+        { "node_id": "FlowyReq04WsCommandSent", "label": "WS Command Sent", "type": "internal", "owner_feature": "blocks.send_command" },
+        { "node_id": "FlowyReq05DeviceResponseReceived", "label": "Device Response Received", "type": "internal", "owner_feature": "flows.client_session" },
+        { "node_id": "FlowyReq06RunFinalized", "label": "Run Finalized", "type": "internal", "owner_feature": "blocks.persist" },
+        { "node_id": "HttpResp01DispatchResponse", "label": "HTTP Dispatch Response", "type": "return", "owner_feature": "feature.command_dispatch" }
+      ],
+      "edges": [
+        { "from": "HttpReq01DispatchRequest", "to": "FlowyReq01CommandEnvelopeBuilt", "step_id": "dispatch-00" },
+        { "from": "FlowyReq01CommandEnvelopeBuilt", "to": "FlowyReq02SessionResolved", "step_id": "dispatch-01" },
+        { "from": "FlowyReq02SessionResolved", "to": "FlowyReq03PendingRegistered", "step_id": "dispatch-02" },
+        { "from": "FlowyReq03PendingRegistered", "to": "FlowyReq04WsCommandSent", "step_id": "dispatch-03" },
+        { "from": "FlowyReq04WsCommandSent", "to": "FlowyReq05DeviceResponseReceived", "step_id": "dispatch-04" },
+        { "from": "FlowyReq05DeviceResponseReceived", "to": "FlowyReq06RunFinalized", "step_id": "dispatch-05" },
+        { "from": "FlowyReq06RunFinalized", "to": "HttpResp01DispatchResponse", "step_id": "dispatch-06" }
+      ],
+      "entrypoint": "HttpReq01DispatchRequest",
+      "return_path": "HttpResp01DispatchResponse"
+    },
+    {
+      "lifecycle_id": "flowy.collection",
+      "nodes": [
+        { "node_id": "HttpReq02CollectionRequest", "label": "HTTP Collection Request", "type": "entrypoint", "owner_feature": "flows.collection" },
+        { "node_id": "FlowyColl01FlowContextInitialized", "label": "Flow Context Initialized", "type": "internal", "owner_feature": "flows.collection" },
+        { "node_id": "FlowyColl02StateInitExecuted", "label": "INIT Executed", "type": "internal", "owner_feature": "flows.collection" },
+        { "node_id": "FlowyColl03ListEntryReady", "label": "List Entry Ready", "type": "internal", "owner_feature": "flows.collection" },
+        { "node_id": "FlowyColl04ItemPicked", "label": "Item Picked", "type": "internal", "owner_feature": "flows.collection" },
+        { "node_id": "FlowyColl05EnterDetailExecuted", "label": "Enter Detail Executed", "type": "internal", "owner_feature": "flows.collection" },
+        { "node_id": "FlowyColl06DetailTaskExecuted", "label": "Detail Task Executed", "type": "internal", "owner_feature": "flows.collection" },
+        { "node_id": "FlowyColl07BackToListExecuted", "label": "Back to List Executed", "type": "internal", "owner_feature": "flows.collection" },
+        { "node_id": "FlowyColl08ContinueChecked", "label": "Continue Checked", "type": "decision", "owner_feature": "flows.collection" },
+        { "node_id": "FlowyColl09ResultBuilt", "label": "Result Built", "type": "internal", "owner_feature": "flows.collection" },
+        { "node_id": "HttpResp02CollectionResult", "label": "HTTP Collection Result", "type": "return", "owner_feature": "flows.collection" }
+      ],
+      "edges": [
+        { "from": "HttpReq02CollectionRequest", "to": "FlowyColl01FlowContextInitialized", "step_id": "coll-00" },
+        { "from": "FlowyColl01FlowContextInitialized", "to": "FlowyColl02StateInitExecuted", "step_id": "coll-01" },
+        { "from": "FlowyColl02StateInitExecuted", "to": "FlowyColl03ListEntryReady", "step_id": "coll-02" },
+        { "from": "FlowyColl03ListEntryReady", "to": "FlowyColl04ItemPicked", "step_id": "coll-03" },
+        { "from": "FlowyColl04ItemPicked", "to": "FlowyColl05EnterDetailExecuted", "step_id": "coll-04" },
+        { "from": "FlowyColl05EnterDetailExecuted", "to": "FlowyColl06DetailTaskExecuted", "step_id": "coll-05" },
+        { "from": "FlowyColl06DetailTaskExecuted", "to": "FlowyColl07BackToListExecuted", "step_id": "coll-06" },
+        { "from": "FlowyColl07BackToListExecuted", "to": "FlowyColl08ContinueChecked", "step_id": "coll-07" },
+        { "from": "FlowyColl08ContinueChecked", "to": "FlowyColl09ResultBuilt", "step_id": "coll-08" },
+        { "from": "FlowyColl09ResultBuilt", "to": "HttpResp02CollectionResult", "step_id": "coll-09" }
+      ],
+      "entrypoint": "HttpReq02CollectionRequest",
+      "return_path": "HttpResp02CollectionResult"
+    },
+    {
+      "lifecycle_id": "flowy.session",
+      "nodes": [
+        { "node_id": "WsReq01Upgrade", "label": "WS Upgrade", "type": "entrypoint", "owner_feature": "feature.session_management" },
+        { "node_id": "WsSession01Connected", "label": "Connected", "type": "internal", "owner_feature": "feature.session_management" },
+        { "node_id": "WsSession02ClientHelloReceived", "label": "Client Hello Received", "type": "internal", "owner_feature": "feature.session_management" },
+        { "node_id": "WsSession03ClientRegistered", "label": "Client Registered", "type": "internal", "owner_feature": "state.app_management" },
+        { "node_id": "WsSession04KeepaliveLoop", "label": "Keepalive Loop", "type": "internal", "owner_feature": "flows.client_session" },
+        { "node_id": "WsSession05ResponseDispatched", "label": "Response Dispatched", "type": "internal", "owner_feature": "state.app_management" },
+        { "node_id": "WsSession06Disconnected", "label": "Disconnected", "type": "return", "owner_feature": "feature.session_management" }
+      ],
+      "edges": [
+        { "from": "WsReq01Upgrade", "to": "WsSession01Connected", "step_id": "ws-00" },
+        { "from": "WsSession01Connected", "to": "WsSession02ClientHelloReceived", "step_id": "ws-01" },
+        { "from": "WsSession02ClientHelloReceived", "to": "WsSession03ClientRegistered", "step_id": "ws-02" },
+        { "from": "WsSession03ClientRegistered", "to": "WsSession04KeepaliveLoop", "step_id": "ws-03" },
+        { "from": "WsSession04KeepaliveLoop", "to": "WsSession05ResponseDispatched", "step_id": "ws-04" },
+        { "from": "WsSession05ResponseDispatched", "to": "WsSession06Disconnected", "step_id": "ws-05" }
+      ],
+      "entrypoint": "WsReq01Upgrade",
+      "return_path": "WsSession06Disconnected"
+    }
+  ]
+}

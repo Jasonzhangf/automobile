@@ -1,0 +1,114 @@
+# Flowy verification map
+# Purpose:
+# - feature -> minimum required verification stack
+# - stop test selection by memory only
+version: 1
+verification:
+  - feature_id: f001.ws_session_lifecycle
+    change_risk: high
+    unit:
+      - services/mac-daemon/src/flows/client_session_flow.go
+    integration:
+      - services/mac-daemon/src/flows/client_session_flow_test.go
+    smoke:
+      - go test ./services/mac-daemon/src/flows/...
+    build:
+      - go test ./services/mac-daemon/...
+      - go build ./services/mac-daemon/...
+
+  - feature_id: f002.manual_command_dispatch
+    change_risk: medium
+    unit:
+      - services/mac-daemon/src/flows/command_roundtrip_flow.go
+      - services/mac-daemon/src/blocks/command_roundtrip.go
+    integration:
+      - services/mac-daemon/src/flows/command_roundtrip_flow_test.go
+    smoke:
+      - go test ./services/mac-daemon/src/flows/...
+    build:
+      - go test ./services/mac-daemon/...
+
+  - feature_id: f003.artifact_upload
+    change_risk: low
+    unit:
+      - services/mac-daemon/src/foundation/multipart_artifact.go
+    integration:
+      - services/mac-daemon/src/flows/artifact_upload_flow_test.go
+
+  - feature_id: f004.collection_flow
+    change_risk: high
+    unit:
+      - services/mac-daemon/src/flows/collection_flow.go
+      - services/mac-daemon/src/flows/collection_types.go
+      - services/mac-daemon/src/flows/collection_run_handler.go
+    contract:
+      - services/mac-daemon/src/flows/collection_flow_test.go # if exists
+    integration:
+      - ./scripts/verify/check-file-lines.sh
+      - scripts/dev/phase-a-real-device-loop.sh # L4: true device E2E before closed
+    smoke:
+      - go test ./services/mac-daemon/src/flows/...
+    build:
+      - go test ./services/mac-daemon/...
+      - go build ./services/mac-daemon/...
+    notes:
+      - "L4 device test required before close any collection-flow task."
+
+  - feature_id: f005.observe_page_block
+    change_risk: medium
+    unit:
+      - services/mac-daemon/src/blocks/observe_page.go
+    integration:
+      - services/mac-daemon/src/blocks/observe_page_test.go
+    smoke:
+      - go test ./services/mac-daemon/src/blocks/...
+
+  - feature_id: f006.anchor_block
+    change_risk: medium
+    unit:
+      - services/mac-daemon/src/blocks/anchor_block.go
+      - services/mac-daemon/src/foundation/anchor_spec.go
+    integration:
+      - services/mac-daemon/src/foundation/anchor_spec_test.go
+
+  - feature_id: f007.operation_block
+    change_risk: medium
+    unit:
+      - services/mac-daemon/src/blocks/operation_block.go
+    notes:
+      - "resolveTapPoint needs refactor before adding new tests"
+
+  - feature_id: f008.comment_like_block
+    change_risk: low
+    integration:
+      - services/mac-daemon/src/blocks/comment_like_block_test.go
+
+  - feature_id: f012.android_blocks
+    change_risk: high
+    unit:
+      - explore/android-daemon-lab/app/src/main/kotlin/com/flowy/explore/blocks/
+    notes:
+      - "no unit tests found for Android blocks"
+      - "should add Android instrumented tests before close"
+
+  - feature_id: f013.android_flows
+    change_risk: high
+    unit:
+      - explore/android-daemon-lab/app/src/main/kotlin/com/flowy/explore/flows/
+    notes:
+      - "DaemonStartupFlow (287 lines) and WorkflowStepFlow (205 lines) need tests"
+
+  - feature_id: packages.protocol.command_envelope
+    change_risk: medium
+    notes:
+      - "Go proto/types.go and Kotlin WsClientAdapter must share same JSON schema"
+
+  - feature_id: packages.foundation.filter_spec
+    change_risk: medium
+    notes:
+      - "Go filter_spec/match and Kotlin AccessibilityTargeting must not diverge"
+
+  - feature_id: packages.foundation.anchor_spec
+    change_risk: medium
+    notes:
+      - "Go anchor_spec and Kotlin EvaluateAnchorBlock must not diverge"

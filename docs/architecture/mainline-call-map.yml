@@ -1,0 +1,366 @@
+# Flowy mainline call map
+# Purpose:
+# - bind request/response mainlines to concrete caller/callee edges
+# - supplement function-map owner registry with executable call-path indexing
+# - prevent edits on facade/wrapper/transitional layers
+version: 1
+status: seed
+
+chains:
+  # ====================== Main HTTP request chains ======================
+
+  - chain_id: ws_session
+    summary: "WebSocket upgrade -> client_hello -> register -> keepalive loop -> response dispatch"
+    entry_contract:
+      node: MainlineWs01ClientConnected
+      doc: services/mac-daemon/src/main.go
+    edges:
+      - step_id: ws-01
+        from_node: MainlineWs01ClientConnected
+        to_node: MainlineWs02HelloReceived
+        semantic_input: "raw websocket.Conn after HTTP upgrade"
+        semantic_output: "parsed ClientHello with deviceID, runtimeVersion"
+        status: anchored
+        caller: main.go:33 -> blocks.WSAcceptHandler
+        callee: flows.RunClientSession
+        owner: f001.ws_session_lifecycle
+      - step_id: ws-02
+        from_node: MainlineWs02HelloReceived
+        to_node: MainlineWs03ClientRegistered
+        semantic_input: "validated ClientHello"
+        semantic_output: "session registered in AppState.clients map"
+        status: anchored
+        caller: flows.RunClientSession
+        callee: state.RegisterClient
+        owner: f001.ws_session_lifecycle
+      - step_id: ws-03
+        from_node: MainlineWs03ClientRegistered
+        to_node: MainlineWs04ReadLoop
+        semantic_input: "registered ClientSession"
+        semantic_output: "keepalive goroutine started + ReadMessage loop"
+        status: anchored
+        caller: flows.RunClientSession
+        callee: goroutine (keepalive) + conn.ReadMessage (main)
+        owner: f001.ws_session_lifecycle
+      - step_id: ws-04
+        from_node: MainlineWs04ReadLoop
+        to_node: MainlineWs05ResponseDispatched
+        semantic_input: "raw message from WS"
+        semantic_output: "decoded ResponseEnvelope routed to pending channel via ResolvePending"
+        status: anchored
+        caller: flows.RunClientSession
+        callee: state.ResolvePending
+        owner: f001.ws_session_lifecycle
+
+  - chain_id: manual_command
+    summary: "POST /exp01/command -> dispatch via WS -> wait response -> finalize -> HTTP 200"
+    entry_contract:
+      node: MainlineHttp01CommandReqReceived
+      doc: services/mac-daemon/src/main.go:36
+    edges:
+      - step_id: cmd-01
+        from_node: MainlineHttp01CommandReqReceived
+        to_node: MainlineHttp02DeviceLookedUp
+        semantic_input: "HTTP POST body: CommandDispatchRequest"
+        semantic_output: "device session found or 404"
+        status: anchored
+        caller: main.go:36 -> flows.CommandRoundtripHandler
+        callee: state.Client(dispatch.DeviceID)
+        owner: f002.manual_command_dispatch
+      - step_id: cmd-02
+        from_node: MainlineHttp02DeviceLookedUp
+        to_node: MainlineWs06CommandSent
+        semantic_input: "ClientSession found"
+        semantic_output: "CommandEnvelope sent via conn.WriteJSON under SendMu lock"
+        status: anchored
+        caller: flows.CommandRoundtripHandler
+        callee: blocks.SendCommand
+        owner: f002.manual_command_dispatch
+      - step_id: cmd-03
+        from_node: MainlineWs06CommandSent
+        to_node: MainlineHttp03ResponseReceived
+        semantic_input: "command dispatched, pending request registered"
+        semantic_output: "response from pending channel or timeout"
+        status: anchored
+        caller: flows.CommandRoundtripHandler
+        callee: select { pending, timeout }
+        owner: f002.manual_command_dispatch
+      - step_id: cmd-04
+        from_node: MainlineHttp03ResponseReceived
+        to_node: MainlineHttp04Finalized
+        semantic_input: "ResponseEnvelope from device"
+        semantic_output: "response + manifest written to artifact dir"
+        status: anchored
+        caller: flows.CommandRoundtripHandler
+        callee: flows.FinalizeRun
+        owner: f002.manual_command_dispatch
+
+  - chain_id: collection_flow
+    summary: "POST /exp01/collection/run -> NewFlowContext -> 9-state FSM -> result"
+    entry_contract:
+      node: MainlineHttp04CollectionRunReq
+      doc: services/mac-daemon/src/main.go:37
+    edges:
+      - step_id: col-01
+        from_node: MainlineHttp04CollectionRunReq
+        to_node: MainlineHttp05DeviceLookedUp
+        semantic_input: "HTTP body: {deviceId, config, profile}"
+        semantic_output: "device session found or 404"
+        status: anchored
+        caller: main.go:37 -> flows.CollectionRunHandler
+        callee: state.Client(req.DeviceID)
+        owner: f004.collection_flow
+      - step_id: col-02
+        from_node: MainlineHttp05DeviceLookedUp
+        to_node: MainlineCustom06FlowContextCreated
+        semantic_input: "device + config + profile"
+        semantic_output: "NewFlowContext with dedup store loaded"
+        status: anchored
+        caller: flows.CollectionRunHandler
+        callee: flows.NewFlowContext
+        owner: f004.collection_flow
+      - step_id: col-03
+        from_node: MainlineCustom06FlowContextCreated
+        to_node: MainlineCustom07FsmIteration
+        semantic_input: "FlowContext ready"
+        semantic_output: "FSM loop up to maxIters"
+        status: anchored
+        caller: flows.CollectionRunHandler
+        callee: FlowContext.Run
+        owner: f004.collection_flow
+      - step_id: col-04
+        from_node: MainlineCustom07FsmIteration
+        to_node: MainlineHttp06CollectionResultReturned
+        semantic_input: "CollectionRunResult from FSM"
+        semantic_output: "result written to artifact dir + HTTP JSON response"
+        status: anchored
+        caller: flows.CollectionRunHandler
+        callee: json.Encode(result)
+        owner: f004.collection_flow
+
+  - chain_id: collection_fsm_inner
+    summary: "FlowContext.Run() inner state machine transitions"
+    entry_contract:
+      node: MainlineCustom07FsmIteration
+      doc: services/mac-daemon/src/flows/collection_flow.go:82
+    edges:
+      - step_id: fsm-init
+        from_node: FsmStateInit
+        to_node: FsmStateListEntry
+        semantic_input: "FC created, checkpoint checked"
+        semantic_output: "launch app via sendOpenDeepLink"
+        status: anchored
+        owner: f004.collection_flow
+      - step_id: fsm-search
+        from_node: FsmStateListEntry
+        to_node: FsmStatePickNext
+        semantic_input: "app launched, search mode"
+        semantic_output: "keyword input + search button tapped + result anchor verified"
+        status: partial
+        caller: FlowContext.stateListEntrySearch
+        callee: blocks.TapBlock, blocks.InputTextBlock, blocks.AnchorBlock
+        owner: f004.collection_flow
+        note: "bindings: TapBlock, InputTextBlock, AnchorBlock are blocks (f005-f007); need verification that actual command roundtrip happens"
+      - step_id: fsm-pick
+        from_node: FsmStatePickNext
+        to_node: FsmStateEnterDetail
+        semantic_input: "observe list page, filter items, dedup check"
+        semantic_output: "selected item (not in dedup) with bounds"
+        status: partial
+        caller: FlowContext.statePickNext
+        callee: blocks.ObservePage, foundation.MatchNodes, foundation.SelectTargets
+        owner: f004.collection_flow
+      - step_id: fsm-detail
+        from_node: FsmStateEnterDetail
+        to_node: FsmStateDetailTask
+        semantic_input: "detail page anchor verified"
+        semantic_output: "likes/favorites executed (if enabled)"
+        status: partial
+        caller: FlowContext.stateEnterDetail
+        callee: blocks.TapBlock, blocks.AnchorBlock
+        owner: f004.collection_flow
+      - step_id: fsm-task
+        from_node: FsmStateDetailTask
+        to_node: FsmStateBackToList
+        semantic_input: "detail page observed"
+        semantic_output: "fields extracted, comments collected (if enabled)"
+        status: partial
+        caller: FlowContext.stateDetailTask
+        callee: blocks.ObservePage, blocks.CommentLikeBlock, blocks.ScrollCollectBlock
+        owner: f004.collection_flow
+      - step_id: fsm-back
+        from_node: FsmStateBackToList
+        to_node: FsmStateCheckContinue
+        semantic_input: "detail page left via back"
+        semantic_output: "returned to list, anchor verified"
+        status: anchored
+        caller: FlowContext.stateBackToList
+        callee: blocks.BackBlock, blocks.AnchorBlock
+        owner: f004.collection_flow
+      - step_id: fsm-continue
+        from_node: FsmStateCheckContinue
+        to_node: FsmStateDone
+        semantic_input: "target count met, scroll done, or stopped"
+        semantic_output: "DONE or loop back to PICK_NEXT"
+        status: anchored
+        caller: FlowContext.stateCheckContinue
+        callee: none (pure check)
+        owner: f004.collection_flow
+
+  - chain_id: artifact_upload
+    summary: "POST /exp01/artifacts -> multipart decode -> persist -> HTTP 200"
+    entry_contract:
+      node: MainlineHttp07ArtifactUpload
+      doc: services/mac-daemon/src/main.go:35
+    edges:
+      - step_id: art-01
+        from_node: MainlineHttp07ArtifactUpload
+        to_node: MainlineHttp08ArtifactPersisted
+        semantic_input: "HTTP multipart: metadata + file body"
+        semantic_output: "file written to artifactRoot/<date>/<runId>/"
+        status: anchored
+        caller: main.go:35 -> flows.ArtifactUploadHandler
+        callee: foundation.DecodeArtifactUpload + blocks.PersistUploadedArtifact
+        owner: f003.artifact_upload
+
+  - chain_id: upgrade
+    summary: "GET /flowy/upgrade/check, /flowy/upgrade/apk, /flowy/upgrade/apk/download"
+    entry_contract:
+      node: MainlineHttp09UpgradeCheck
+      doc: services/mac-daemon/src/main.go:27-30
+    edges:
+      - step_id: upg-01
+        from_node: MainlineHttp09UpgradeCheck
+        to_node: MainlineHttp10UpgradeResponse
+        semantic_input: "HTTP GET"
+        semantic_output: "version file read, JSON response"
+        status: anchored
+        caller: main.go:27 -> flows.UpgradeCheckHandler
+        callee: readRuntimeVersion(versionFilePath)
+        owner: f011.upgrade_check
+
+# ====================== Block internal call chains ======================
+
+  - chain_id: command_roundtrip
+    summary: "Internal: CommandRoundtrip -> SendCommand -> RegisterPending -> wait response -> return"
+    edges:
+      - step_id: crt-01
+        from_node: Internal01CmdRoundtripStart
+        to_node: Internal02CmdSent
+        semantic_input: "session + app + CommandEnvelope"
+        semantic_output: "command written to WS, pending channel registered"
+        status: anchored
+        caller: blocks.CommandRoundtrip
+        callee: blocks.SendCommand + state.RegisterPending
+        owner: f002.manual_command_dispatch
+      - step_id: crt-02
+        from_node: Internal02CmdSent
+        to_node: Internal03CmdResponseReceived
+        semantic_input: "pending channel open"
+        semantic_output: "response or timeout"
+        status: anchored
+        caller: blocks.CommandRoundtrip
+        callee: select { pending, timeout }
+        owner: f002.manual_command_dispatch
+
+  - chain_id: observe_page_inner
+    summary: "Internal: ObservePage -> build cmd -> CommandRoundtrip -> read artifact -> parse nodes"
+    edges:
+      - step_id: obs-01
+        from_node: Internal04ObserveStart
+        to_node: Internal05ObserveCmdSent
+        semantic_input: "session + app + artifactRoot"
+        semantic_output: "CommandEnvelope with command dump-ui-tree-root"
+        status: anchored
+        caller: blocks.ObservePage
+        callee: foundation.NewRequestID + foundation.NewRunID
+        owner: f005.observe_page_block
+      - step_id: obs-02
+        from_node: Internal05ObserveCmdSent
+        to_node: Internal06ObserveResponseParsed
+        semantic_input: "response with artifacts from device"
+        semantic_output: "parsed UiNode[] from artifact JSON file"
+        status: anchored
+        caller: blocks.ObservePage
+        callee: foundation.Decode[ObserveResult] (via file read)
+        owner: f005.observe_page_block
+      - step_id: obs-03
+        from_node: Internal06ObserveResponseParsed
+        to_node: Internal07ObserveReturned
+        semantic_input: "parsed UiNode[]"
+        semantic_output: "*ObserveResult with PackageName + NodeCount"
+        status: anchored
+        caller: blocks.ObservePage
+        callee: return
+        owner: f005.observe_page_block
+
+  - chain_id: anchor_block_inner
+    summary: "Internal: AnchorBlock -> ObservePage -> EvaluateAnchor -> retry loop"
+    edges:
+      - step_id: anc-01
+        from_node: Internal08AnchorStart
+        to_node: Internal09ObserveCalled
+        semantic_input: "session + app + AnchorSpec + config"
+        semantic_output: "ObserveResult from device"
+        status: anchored
+        caller: blocks.AnchorBlock
+        callee: blocks.ObservePage
+        owner: f006.anchor_block
+      - step_id: anc-02
+        from_node: Internal09ObserveCalled
+        to_node: Internal10AnchorEvaluated
+        semantic_input: "ObserveResult.Nodes"
+        semantic_output: "AnchorResult (matched/fail + reasons)"
+        status: anchored
+        caller: blocks.AnchorBlock
+        callee: foundation.EvaluateAnchor
+        owner: f006.anchor_block
+      - step_id: anc-03
+        from_node: Internal10AnchorEvaluated
+        to_node: Internal11AnchorRetryOrReturn
+        semantic_input: "AnchorResult"
+        semantic_output: "if not matched and retries left -> loop to ObservePage; else return"
+        status: anchored
+        caller: blocks.AnchorBlock
+        callee: loop (jitter + ObservePage again)
+        owner: f006.anchor_block
+
+  - chain_id: operation_block_inner
+    summary: "Internal: TapBlock -> resolveTapPoint -> ObservePage -> findNodeBySelector -> CommandRoundtrip"
+    edges:
+      - step_id: op-01
+        from_node: Internal12TapStart
+        to_node: Internal13PointResolved
+        semantic_input: "TapTarget (direct coords or desc/text selector)"
+        semantic_output: "(x, y) point or error"
+        status: partial
+        caller: blocks.TapBlock
+        callee: resolveTapPoint
+        owner: f007.operation_block
+        note: "resolveTapPoint reimplements observe+filter; should reuse MatchNodes"
+      - step_id: op-02
+        from_node: Internal13PointResolved
+        to_node: Internal14TapCmdSent
+        semantic_input: "(x, y) point"
+        semantic_output: "CommandEnvelope with command tap"
+        status: anchored
+        caller: blocks.TapBlock
+        callee: blocks.CommandRoundtrip
+        owner: f007.operation_block
+
+# ====================== Binding status summary ======================
+# anchored: verified, code-level binding exists
+# partial: edge identified but verification pending
+# binding pending: edge not yet mapped to real code
+# Status for each edge:
+#   ws-01..ws-04: anchored
+#   cmd-01..cmd-04: anchored
+#   col-01..col-04: anchored
+#   fsm-init, fsm-back, fsm-continue: anchored
+#   fsm-search, fsm-pick, fsm-detail, fsm-task: partial
+#   art-01: anchored
+#   upg-01: anchored
+#   crt-01, crt-02: anchored
+#   obs-01..obs-03: anchored
+#   anc-01..anc-03: anchored
+#   op-01: partial, op-02: anchored

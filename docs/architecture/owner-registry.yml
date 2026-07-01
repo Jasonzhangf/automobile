@@ -1,0 +1,74 @@
+# Flowy Owner Registry
+# Maps each directory/file to its owning feature and maintainer rules.
+version: 1
+
+entries:
+  # Main daemon
+  - path: services/mac-daemon/src/
+    owner_feature: main.entrypoint
+    note: "Mac-side orchestration daemon. All Go code."
+    allowed_changes: "All routes registered in main.go; new handlers add new routes"
+    forbidden: "Do not add flow-level orchestration in main.go (use flows/)"
+
+  - path: services/mac-daemon/src/foundation/
+    owner_feature_group: foundation.*
+    note: "Pure functions. No session/state/WS dependencies. Must remain stateless."
+    forbidden: "Do not import state.AppState or proto.CommandEnvelope"
+
+  - path: services/mac-daemon/src/blocks/
+    owner_feature_group: blocks.*
+    note: "Capability modules. Each file = one capability. Accept session+state+proto."
+    forbidden: "Do not add flow-level orchestration. Do not duplicate foundation logic."
+
+  - path: services/mac-daemon/src/flows/
+    owner_feature_group: flows.*
+    note: "Orchestration layer. State machines, session lifecycle, HTTP handlers."
+    forbidden: "Do not add foundation-level pure functions. Do not add block-level capability."
+
+  - path: services/mac-daemon/src/proto/
+    owner_feature: proto.types
+    note: "Protocol types. All shared JSON schema Go structs."
+    forbidden: "Do not add business logic. Do not add session/state management."
+
+  - path: services/mac-daemon/src/state/
+    owner_feature: state.app_management
+    note: "Runtime state management. Client sessions, pending commands, active runs."
+    forbidden: "Do not add protocol types. Do not add orchestration logic."
+
+  # Android daemon
+  - path: explore/android-daemon-lab/app/src/main/kotlin/com/flowy/explore/blocks/
+    owner_feature: android.blocks
+    note: "Android-side leaf blocks. Each block = one atomic operation."
+    forbidden: "Do not add orchestration (use flows/). Do not add pure functions (use foundation/)."
+
+  - path: explore/android-daemon-lab/app/src/main/kotlin/com/flowy/explore/foundation/
+    owner_feature_group: foundation.*
+    note: "Android-side pure functions. Targeting, serialization, block results."
+    forbidden: "Do not add service lifecycle. Do not add UI code."
+
+  - path: explore/android-daemon-lab/app/src/main/kotlin/com/flowy/explore/flows/
+    owner_feature_group: flows.*
+    note: "Android-side orchestration. Daemon startup, screenshot flow, workflow steps."
+    forbidden: "Do not add block-level capability. Pure orchestration only."
+
+  # Shared packages
+  - path: packages/foundation/
+    owner_feature: foundation.*
+    note: "TRUE SOURCE NOT YET FULFILLED. Should hold shared spec JSONs (FilterSpec, AnchorSpec, OperationBackend)."
+    forbidden: "Do not leave empty. Migrate shared spec from both src/ sides."
+
+  - path: packages/blocks/
+    owner_feature_group: blocks.*
+    note: "TRUE SOURCE NOT YET FULFILLED. Should hold block example fixtures and verified test expectations."
+    forbidden: "Do not leave empty. Migrate block fixtures from services/mac-daemon/blocks."
+
+  - path: packages/protocol/
+    owner_feature: proto.types
+    note: "TRUE SOURCE NOT YET FULFILLED. Should hold protocol example JSON for both Go and Kotlin."
+    forbidden: "Do not leave empty. Generate or mirror from services/mac-daemon/src/proto/types.go."
+
+  # Docs
+  - path: docs/architecture/
+    owner_feature: main.entrypoint
+    note: "Architecture docs. function-map, mainline-call-map, verification-map, owner-registry, wiki."
+    required: "Must stay in sync with code. Run audit-mainline-binding.sh after changes."
