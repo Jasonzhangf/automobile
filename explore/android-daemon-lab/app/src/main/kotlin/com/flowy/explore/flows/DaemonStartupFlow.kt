@@ -32,13 +32,13 @@ import com.flowy.explore.foundation.TimeHelper
 import com.flowy.explore.foundation.VersionReader
 import com.flowy.explore.foundation.WsClientAdapter
 import com.flowy.explore.runtime.FlowyAccessibilityService
-import com.flowy.explore.runtime.LocalLogStore
+import com.flowy.explore.foundation.executor.LogStore
 import org.json.JSONArray
 import org.json.JSONObject
 
 class DaemonStartupFlow(
   private val context: Context,
-  private val logStore: LocalLogStore,
+  private val logStore: LogStore,
   private val reconnectFlow: ReconnectFlow,
 ) {
   private val appendLogBlock = AppendLogBlock(logStore)
@@ -113,13 +113,8 @@ class DaemonStartupFlow(
       },
     )
     pingFlow = PingResponseFlow(appendLogBlock, HandlePingBlock(versionReader), wsClientAdapter)
-    fetchLogsFlow = FetchLogsFlow(appendLogBlock, HandleFetchLogsBlock(versionReader, ReadLogTailBlock(logStore)), wsClientAdapter)
-    val observePageBlock = ObservePageBlock(
-      displayInfoReader = DisplayInfoReader(context),
-      dumpAccessibilityTreeBlock = DumpAccessibilityTreeBlock(),
-      dumpUiTreeRootBlock = DumpUiTreeRootBlock(),
-      captureScreenshotBlock = CaptureScreenshotBlock(),
-    )
+    fetchLogsFlow = FetchLogsFlow(appendLogBlock, HandleFetchLogsBlock(logStore), wsClientAdapter)
+    val observePageBlock = ObservePageBlock()
     screenshotCaptureFlow = ScreenshotCaptureFlow(
       appendLogBlock = appendLogBlock,
       versionReader = versionReader,
@@ -167,7 +162,7 @@ class DaemonStartupFlow(
       executeOperationBlock = ExecuteOperationBlock(
         tapBlock = TapBlock(),
         scrollBlock = ScrollBlock(),
-        inputTextBlock = InputTextBlock(setClipboard = setClipboardBlock::run),
+        inputTextBlock = InputTextBlock(),
         backBlock = BackBlock(),
         pressKeyBlock = PressKeyBlock(),
         openDeepLinkBlock = OpenDeepLinkBlock(context),
@@ -179,13 +174,13 @@ class DaemonStartupFlow(
       logError = { event, message, requestId, runId, command -> appendLogBlock.error(event, message, requestId, runId, command) },
       versionName = versionReader::versionName,
       sendResponse = wsClientAdapter::send,
-      observePage = observePageBlock::observe,
+      
       filterTargets = com.flowy.explore.blocks.FilterTargetsBlock()::run,
       evaluateAnchor = com.flowy.explore.blocks.EvaluateAnchorBlock()::run,
       executeOperation = ExecuteOperationBlock(
         tapBlock = TapBlock(),
         scrollBlock = ScrollBlock(),
-        inputTextBlock = InputTextBlock(setClipboard = setClipboardBlock::run),
+        inputTextBlock = InputTextBlock(),
         backBlock = BackBlock(),
         pressKeyBlock = PressKeyBlock(),
         openDeepLinkBlock = OpenDeepLinkBlock(context),
@@ -198,7 +193,6 @@ class DaemonStartupFlow(
         },
       )::run,
     )
-    FlowyAccessibilityService.setAvailabilityListener { sendHello() }
     connect(onStatus)
 
     // start WS watchdog after connection attempt
@@ -216,7 +210,6 @@ class DaemonStartupFlow(
   }
 
   fun close() {
-    FlowyAccessibilityService.setAvailabilityListener(null)
     scheduler.shutdownNow()
     if (::wsClientAdapter.isInitialized) wsClientAdapter.close()
   }

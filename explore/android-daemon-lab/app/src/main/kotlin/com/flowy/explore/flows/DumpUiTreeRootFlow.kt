@@ -23,17 +23,17 @@ class DumpUiTreeRootFlow(
     val startedAt = TimeHelper.now()
     appendLogBlock.info("dump_ui_tree_root_started", "dumping root ui tree", requestId, runId, command)
     try {
-      val snapshot = dumpUiTreeRootBlock.run()
+      val snapshotJson = dumpUiTreeRootBlock.currentJson()
       val displayInfo = displayInfoReader.read()
-      val nodesJson = JSONObject(snapshot.rawJson)
+      val nodesJson = snapshotJson ?: error("ROOT_UI_DUMP_FAILED")
       val nodeCount = nodesJson.optJSONArray("nodes")?.length() ?: 0
       val pageContext = JSONObject().apply {
         put("requestId", requestId)
         put("runId", runId)
         put("command", command)
-        put("capturedAt", snapshot.capturedAt)
+        put("capturedAt", TimeHelper.now())
         put("app", JSONObject().apply {
-          put("packageName", snapshot.packageName ?: JSONObject.NULL)
+          put("packageName", JSONObject().optString("packageName") ?: JSONObject.NULL)
         })
         put("screen", JSONObject().apply {
           put("widthPx", displayInfo.widthPx)
@@ -49,7 +49,7 @@ class DumpUiTreeRootFlow(
         })
       }
       val artifacts = JSONArray().apply {
-        put(upload(requestId, runId, command, "root-ui-tree", "root-ui-tree.json", snapshot.rawJson.toByteArray()))
+        put(upload(requestId, runId, command, "root-ui-tree", "root-ui-tree.json", nodesJson.toString(2).toByteArray()))
         put(upload(requestId, runId, command, "page-context", "page-context.json", pageContext.toString(2).toByteArray()))
       }
       appendLogBlock.info("dump_ui_tree_root_finished", "dumped $nodeCount nodes", requestId, runId, command)

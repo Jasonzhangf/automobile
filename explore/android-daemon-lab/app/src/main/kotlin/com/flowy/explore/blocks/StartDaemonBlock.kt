@@ -1,15 +1,13 @@
 package com.flowy.explore.blocks
 
-import android.content.Context
-import android.content.Intent
-import androidx.core.content.ContextCompat
-import com.flowy.explore.runtime.DaemonForegroundService
+import com.flowy.explore.foundation.executor.ServiceController
+import org.json.JSONObject
 
-class StartDaemonBlock(private val context: Context) {
-  fun run() {
-    val intent = Intent(context, DaemonForegroundService::class.java).apply {
-      action = DaemonForegroundService.ACTION_START
-    }
-    ContextCompat.startForegroundService(context, intent)
+class StartDaemonBlock(
+  private val serviceController: ServiceController,
+) {
+  fun run(payload: JSONObject): String {
+    check(serviceController.start()) { "START_DAEMON_FAILED" }
+    return "daemon-started"
   }
 }

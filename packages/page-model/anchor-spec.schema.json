@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flowy.dev/page-model/anchor-spec.schema.json",
+  "title": "AnchorSpec",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "anchorId": {"type": "string"},
+    "mustContainTexts": {"type": "array", "items": {"type": "string"}},
+    "mustNotContainTexts": {"type": "array", "items": {"type": "string"}},
+    "targetVisible": {"type": ["boolean", "null"]},
+    "targetDescContains": {"type": "string"},
+    "targetTextContains": {"type": "string"},
+    "minNodeCount": {"type": "integer", "minimum": 0},
+    "maxNodeCount": {"type": "integer", "minimum": 0},
+    "packageName": {"type": "string"},
+    "pageSignature": {"type": "string"},
+    "projectionReady": {"type": ["boolean", "null"]}
+  }
+}

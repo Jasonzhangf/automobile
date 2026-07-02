@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flowy.dev/protocol/control/artifact-descriptor.schema.json",
+  "title": "ArtifactDescriptor",
+  "type": "object",
+  "required": ["kind", "fileName", "contentType"],
+  "properties": {
+    "kind": {"type": "string"},
+    "fileName": {"type": "string"},
+    "contentType": {"type": "string"},
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "sizeBytes": {"type": "integer", "minimum": 0}
+  }
+}

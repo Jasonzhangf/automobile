@@ -3,18 +3,22 @@ package com.flowy.explore.blocks
 import com.flowy.explore.foundation.AccessibilityTargeting
 import com.flowy.explore.foundation.OperationBackend
 import com.flowy.explore.foundation.RootShellRunner
-import com.flowy.explore.runtime.AccessibilitySnapshotStore
-import com.flowy.explore.runtime.FlowyAccessibilityService
+import com.flowy.explore.foundation.executor.AccessibilitySource
+import com.flowy.explore.foundation.executor.TapExecutor
+import com.flowy.explore.runtime.adapter.AccessibilitySnapshotAdapter
+import com.flowy.explore.runtime.adapter.AccessibilityTapAdapter
 import org.json.JSONObject
 
 class TapBlock(
+  private val tapExecutor: TapExecutor = AccessibilityTapAdapter,
+  private val snapshotSource: AccessibilitySource = AccessibilitySnapshotAdapter,
   private val rootShellRunner: RootShellRunner = RootShellRunner(),
 ) {
   fun run(payload: JSONObject): String {
     val point = AccessibilityTargeting.pointFromPayload(payload) ?: resolvePoint(payload)
     return when (OperationBackend.fromPayload(payload)) {
       OperationBackend.ACCESSIBILITY -> {
-        check(FlowyAccessibilityService.requireInstance().performTap(point.first, point.second)) { "TAP_FAILED" }
+        check(tapExecutor.tap(point.first, point.second)) { "TAP_FAILED" }
         "tap:accessibility:${point.first},${point.second}"
       }
       OperationBackend.ROOT -> {
@@ -27,7 +31,7 @@ class TapBlock(
 
   private fun resolvePoint(payload: JSONObject): Pair<Int, Int> {
     val selector = AccessibilityTargeting.selectorFromPayload(payload)
-    val bounds = AccessibilityTargeting.resolveBounds(AccessibilitySnapshotStore.currentJson(), selector)
+    val bounds = AccessibilityTargeting.resolveBounds(snapshotSource.currentJson(), selector)
       ?: error("TARGET_NOT_FOUND")
     return bounds.centerX() to bounds.centerY()
   }

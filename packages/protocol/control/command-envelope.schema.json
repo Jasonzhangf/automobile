@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flowy.dev/protocol/control/command-envelope.schema.json",
+  "title": "CommandEnvelope",
+  "description": "WebSocket command envelope shared by Go daemon and Kotlin Android daemon.",
+  "type": "object",
+  "required": ["protocolVersion", "requestId", "runId", "command", "sentAt", "timeoutMs"],
+  "additionalProperties": false,
+  "properties": {
+    "protocolVersion": {
+      "type": "string",
+      "const": "exp01",
+      "description": "Protocol version (must be exp01)"
+    },
+    "requestId": {
+      "type": "string",
+      "pattern": "^req-\\d+-[a-z0-9-]+-\\d+$",
+      "description": "Unique request ID (req-<seq>-<rand>-<ms>)"
+    },
+    "runId": {
+      "type": "string",
+      "pattern": "^run-\\d+-[a-z0-9-]+-.+$",
+      "description": "Run ID tying related requests (run-<ms>-<rand>-<purpose>)"
+    },
+    "command": {
+      "type": "string",
+      "enum": [
+        "ping", "fetch-logs", "capture-screenshot", "dump-ui-tree-root",
+        "tap", "scroll", "press-key", "input-text", "back",
+        "open-deep-link", "restart-app", "run-root-command"
+      ],
+      "description": "Command name"
+    },
+    "sentAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC3339 timestamp"
+    },
+    "timeoutMs": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 600000,
+      "description": "Command timeout in milliseconds (max 10min)"
+    },
+    "payload": {
+      "type": "object",
+      "description": "Command-specific payload (free-form schema by command)"
+    }
+  }
+}

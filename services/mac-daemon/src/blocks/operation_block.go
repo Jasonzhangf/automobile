@@ -2,7 +2,7 @@ package blocks
 
 import (
 	"fmt"
-	"time"
+	"strings"
 
 	"flowy/services/mac-daemon/src/foundation"
 	"flowy/services/mac-daemon/src/proto"
@@ -19,10 +19,16 @@ const (
 
 // TapTarget describes how to resolve the tap point.
 type TapTarget struct {
-	// Direct point (highest priority).
-	X *int `json:"x,omitempty"`
-	Y *int `json:"y,omitempty"`
-	// Selector-based (uses filter + ObservePage to resolve).
+	X            *int   `json:"x,omitempty"`
+	Y            *int   `json:"y,omitempty"`
+	DescContains string `json:"descContains,omitempty"`
+	TextContains string `json:"textContains,omitempty"`
+}
+
+// ScrollTarget describes where to scroll.
+type ScrollTarget struct {
+	X            *int   `json:"x,omitempty"`
+	Y            *int   `json:"y,omitempty"`
 	DescContains string `json:"descContains,omitempty"`
 	TextContains string `json:"textContains,omitempty"`
 }
@@ -36,24 +42,22 @@ func TapBlock(
 	backend OperationBackend,
 	timeoutMs int,
 ) error {
-	x, y, err := resolveTapPoint(session, app, artifactRoot, target, timeoutMs)
+	tr := makeTransport(session, app)
+	return tapWithTransport(tr, artifactRoot, target, backend, timeoutMs)
+}
+
+func tapWithTransport(tr *Transport, artifactRoot string, target TapTarget, backend OperationBackend, timeoutMs int) error {
+	x, y, err := resolveTapPoint(tr, artifactRoot, target, timeoutMs)
 	if err != nil {
 		return fmt.Errorf("tap: resolve point failed: %w", err)
 	}
-	cmd := proto.CommandEnvelope{
-		ProtocolVersion: "exp01",
-		RequestID:       foundation.NewRequestID(time.Now(), app.NextRequestSeq()),
-		RunID:           foundation.NewRunID(time.Now(), "tap", "operation"),
-		Command:         "tap",
-		SentAt:          time.Now().Format(time.RFC3339),
-		TimeoutMs:       timeoutMs,
-		Payload: map[string]any{
-			"x":       x,
-			"y":       y,
-			"backend": string(backend),
-		},
+	cmd := NewCommand(tr, proto.CmdTap, map[string]any{
+		"x": x, "y": y, "backend": string(backend),
+	})
+	if timeoutMs > 0 {
+		cmd.TimeoutMs = timeoutMs
 	}
-	resp, err := CommandRoundtrip(session, app, cmd)
+	resp, err := transportRoundtrip(tr, cmd)
 	if err != nil {
 		return fmt.Errorf("tap command failed: %w", err)
 	}
@@ -67,17 +71,6 @@ func TapBlock(
 	return nil
 }
 
-// ScrollTarget describes where to scroll.
-type ScrollTarget struct {
-	// Direct point.
-	X *int `json:"x,omitempty"`
-	Y *int `json:"y,omitempty"`
-	// Selector-based.
-	DescContains string `json:"descContains,omitempty"`
-	TextContains string `json:"textContains,omitempty"`
-	// Defaults to a scrollable node if empty.
-}
-
 // ScrollBlock sends a scroll command to the Android device.
 func ScrollBlock(
 	session *state.ClientSession,
@@ -88,28 +81,25 @@ func ScrollBlock(
 	backend OperationBackend,
 	timeoutMs int,
 ) error {
+	tr := makeTransport(session, app)
+	return scrollWithTransport(tr, artifactRoot, target, direction, backend, timeoutMs)
+}
+
+func scrollWithTransport(tr *Transport, artifactRoot string, target ScrollTarget, direction string, backend OperationBackend, timeoutMs int) error {
 	if direction == "" {
 		direction = "forward"
 	}
-	x, y, err := resolveScrollPoint(session, app, artifactRoot, target, timeoutMs)
+	x, y, err := resolveScrollPoint(tr, artifactRoot, target, timeoutMs)
 	if err != nil {
 		return fmt.Errorf("scroll: resolve point failed: %w", err)
 	}
-	cmd := proto.CommandEnvelope{
-		ProtocolVersion: "exp01",
-		RequestID:       foundation.NewRequestID(time.Now(), app.NextRequestSeq()),
-		RunID:           foundation.NewRunID(time.Now(), "scroll", "operation"),
-		Command:         "scroll",
-		SentAt:          time.Now().Format(time.RFC3339),
-		TimeoutMs:       timeoutMs,
-		Payload: map[string]any{
-			"x":         x,
-			"y":         y,
-			"direction":  direction,
-			"backend":   string(backend),
-		},
+	cmd := NewCommand(tr, proto.CmdScroll, map[string]any{
+		"x": x, "y": y, "direction": direction, "backend": string(backend),
+	})
+	if timeoutMs > 0 {
+		cmd.TimeoutMs = timeoutMs
 	}
-	resp, err := CommandRoundtrip(session, app, cmd)
+	resp, err := transportRoundtrip(tr, cmd)
 	if err != nil {
 		return fmt.Errorf("scroll command failed: %w", err)
 	}
@@ -130,19 +120,18 @@ func BackBlock(
 	backend OperationBackend,
 	timeoutMs int,
 ) error {
-	cmd := proto.CommandEnvelope{
-		ProtocolVersion: "exp01",
-		RequestID:       foundation.NewRequestID(time.Now(), app.NextRequestSeq()),
-		RunID:           foundation.NewRunID(time.Now(), "press-key", "operation"),
-		Command:         "press-key",
-		SentAt:          time.Now().Format(time.RFC3339),
-		TimeoutMs:       timeoutMs,
-		Payload: map[string]any{
-			"keyCode": 4,
-			"backend": string(backend),
-		},
+	tr := makeTransport(session, app)
+	return backWithTransport(tr, backend, timeoutMs)
+}
+
+func backWithTransport(tr *Transport, backend OperationBackend, timeoutMs int) error {
+	cmd := NewCommand(tr, proto.CmdPressKey, map[string]any{
+		"keyCode": 4, "backend": string(backend),
+	})
+	if timeoutMs > 0 {
+		cmd.TimeoutMs = timeoutMs
 	}
-	resp, err := CommandRoundtrip(session, app, cmd)
+	resp, err := transportRoundtrip(tr, cmd)
 	if err != nil {
 		return fmt.Errorf("back command failed: %w", err)
 	}
@@ -164,19 +153,18 @@ func InputTextBlock(
 	backend OperationBackend,
 	timeoutMs int,
 ) error {
-	cmd := proto.CommandEnvelope{
-		ProtocolVersion: "exp01",
-		RequestID:       foundation.NewRequestID(time.Now(), app.NextRequestSeq()),
-		RunID:           foundation.NewRunID(time.Now(), "input-text", "operation"),
-		Command:         "input-text",
-		SentAt:          time.Now().Format(time.RFC3339),
-		TimeoutMs:       timeoutMs,
-		Payload: map[string]any{
-			"text":    text,
-			"backend": string(backend),
-		},
+	tr := makeTransport(session, app)
+	return inputTextWithTransport(tr, text, backend, timeoutMs)
+}
+
+func inputTextWithTransport(tr *Transport, text string, backend OperationBackend, timeoutMs int) error {
+	cmd := NewCommand(tr, proto.CmdInputText, map[string]any{
+		"text": text, "backend": string(backend),
+	})
+	if timeoutMs > 0 {
+		cmd.TimeoutMs = timeoutMs
 	}
-	resp, err := CommandRoundtrip(session, app, cmd)
+	resp, err := transportRoundtrip(tr, cmd)
 	if err != nil {
 		return fmt.Errorf("input-text command failed: %w", err)
 	}
@@ -190,54 +178,39 @@ func InputTextBlock(
 	return nil
 }
 
-// resolveTapPoint resolves direct coordinates or selector to (x, y).
-func resolveTapPoint(session *state.ClientSession, app *state.AppState, artifactRoot string, target TapTarget, timeoutMs int) (int, int, error) {
+// --- Internal helpers -----------------------------------------------
+
+func resolveTapPoint(tr *Transport, artifactRoot string, target TapTarget, timeoutMs int) (int, int, error) {
 	if target.X != nil && target.Y != nil {
 		return *target.X, *target.Y, nil
 	}
-	obs, err := ObservePage(session, app, artifactRoot, timeoutMs)
+	obs, err := observePageWithTransport(tr, artifactRoot, timeoutMs)
 	if err != nil {
 		return 0, 0, err
 	}
-	node := findNodeBySelector(obs.Nodes, target.DescContains, target.TextContains)
-	if node == nil {
-		return 0, 0, fmt.Errorf("no node matching selector")
+	n := findNodeBySelector(obs.Nodes, target.DescContains, target.TextContains)
+	if n == nil || n.BoundsInScreen == nil {
+		return 0, 0, fmt.Errorf("tap target not found (desc=%q text=%q)", target.DescContains, target.TextContains)
 	}
-	if node.BoundsInScreen == nil {
-		return 0, 0, fmt.Errorf("target node has no bounds")
-	}
-	cx, cy := node.BoundsInScreen.Center()
-	return cx, cy, nil
+	cx, cy := n.BoundsInScreen.Center(); return cx, cy, nil
 }
 
-// resolveScrollPoint resolves direct coordinates or selector to (x, y).
-func resolveScrollPoint(session *state.ClientSession, app *state.AppState, artifactRoot string, target ScrollTarget, timeoutMs int) (int, int, error) {
+func resolveScrollPoint(tr *Transport, artifactRoot string, target ScrollTarget, timeoutMs int) (int, int, error) {
 	if target.X != nil && target.Y != nil {
 		return *target.X, *target.Y, nil
 	}
-	obs, err := ObservePage(session, app, artifactRoot, timeoutMs)
+	obs, err := observePageWithTransport(tr, artifactRoot, timeoutMs)
 	if err != nil {
 		return 0, 0, err
 	}
-	// Try selector first, then fall back to any scrollable node.
-	if target.DescContains != "" || target.TextContains != "" {
-		node := findNodeBySelector(obs.Nodes, target.DescContains, target.TextContains)
-		if node != nil && node.BoundsInScreen != nil {
-			cx, cy := node.BoundsInScreen.Center()
-			return cx, cy, nil
-		}
+	n := findNodeBySelector(obs.Nodes, target.DescContains, target.TextContains)
+	if n == nil || n.BoundsInScreen == nil {
+		// Fallback to center screen (approximate scroll position)
+		return 540, 1200, nil
 	}
-	// Fall back: find first scrollable node.
- for _, n := range obs.Nodes {
-		if n.Flags.Scrollable && n.BoundsInScreen != nil {
-			cx, cy := n.BoundsInScreen.Center()
-			return cx, cy, nil
-		}
-	}
-	return 0, 0, fmt.Errorf("no scrollable node found")
+	cx, cy := n.BoundsInScreen.Center(); return cx, cy, nil
 }
 
-// findNodeBySelector finds the first node matching descContains and/or textContains.
 func findNodeBySelector(nodes []foundation.UiNode, descContains, textContains string) *foundation.UiNode {
 	for i := range nodes {
 		n := &nodes[i]
@@ -251,14 +224,10 @@ func findNodeBySelector(nodes []foundation.UiNode, descContains, textContains st
 }
 
 func containsStr(s, substr string) bool {
-	return len(substr) > 0 && len(s) >= len(substr) && findSubstr(s, substr)
+	return s != "" && strings.Contains(s, substr)
 }
 
 func findSubstr(s, sub string) bool {
-	for i := 0; i <= len(s)-len(sub); i++ {
-		if s[i:i+len(sub)] == sub {
-			return true
-		}
-	}
-	return false
+	return s != "" && strings.Contains(s, sub)
 }
+

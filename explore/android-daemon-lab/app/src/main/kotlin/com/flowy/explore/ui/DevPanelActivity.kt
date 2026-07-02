@@ -14,6 +14,7 @@ import com.flowy.explore.blocks.RequestProjectionPermissionBlock
 import com.flowy.explore.blocks.StartDaemonBlock
 import com.flowy.explore.blocks.StartOverlayWorkbenchBlock
 import com.flowy.explore.blocks.StopDaemonBlock
+import com.flowy.explore.runtime.adapter.DaemonServiceController
 import com.flowy.explore.blocks.StopOverlayWorkbenchBlock
 import com.flowy.explore.foundation.AccessibilityStatusReader
 import com.flowy.explore.foundation.DevServerReader
@@ -58,8 +59,8 @@ class DevPanelActivity : AppCompatActivity() {
     upgradeCheckFlow = UpgradeCheckFlow(this)
     findViewById<TextView>(R.id.textVersion).text = "Version: ${versionReader.versionName()}"
     findViewById<TextView>(R.id.textServer).text = "Server: ${server.wsUrl()}"
-    findViewById<Button>(R.id.buttonStart).setOnClickListener { StartDaemonBlock(this).run() }
-    findViewById<Button>(R.id.buttonStop).setOnClickListener { StopDaemonBlock(this).run() }
+    findViewById<Button>(R.id.buttonStart).setOnClickListener { StartDaemonBlock(DaemonServiceController(this)).run(org.json.JSONObject()) }
+    findViewById<Button>(R.id.buttonStop).setOnClickListener { StopDaemonBlock(DaemonServiceController(this)).run(org.json.JSONObject()) }
     findViewById<Button>(R.id.buttonOpenAccessibility).setOnClickListener {
       OpenAccessibilitySettingsBlock(this).run()
     }
@@ -128,7 +129,7 @@ class DevPanelActivity : AppCompatActivity() {
 
   private fun ensureDaemonRunning() {
     if (DaemonForegroundService.currentStatus == "idle" || DaemonForegroundService.currentStatus == "stopped") {
-      StartDaemonBlock(this).run()
+      StartDaemonBlock(DaemonServiceController(this)).run(org.json.JSONObject())
       window.decorView.postDelayed({ renderRuntimeState() }, 300L)
     }
   }

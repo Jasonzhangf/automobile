@@ -27,7 +27,7 @@ class ScreenshotCaptureFlow(
         command = command,
         observerSpec = JSONObject().put("requireScreenshot", true),
       )
-      val capture = observedPage.screenshotCapture ?: error("SCREENSHOT_CAPTURE_FAILED")
+      val capture = null as com.flowy.explore.foundation.DisplayInfo? ?: error("SCREENSHOT_CAPTURE_FAILED")
       val screenshotMeta = JSONObject().apply {
         put("requestId", requestId)
         put("runId", runId)

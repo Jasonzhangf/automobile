@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flowy.dev/page-model/operation-backend.schema.json",
+  "title": "OperationBackend",
+  "type": "string",
+  "enum": ["accessibility", "root"],
+  "description": "Operation backend - 'accessibility' uses AccessibilityService, 'root' uses shell input commands"
+}

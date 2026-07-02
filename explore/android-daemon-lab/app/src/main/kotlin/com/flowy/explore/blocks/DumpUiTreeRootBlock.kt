@@ -2,7 +2,7 @@ package com.flowy.explore.blocks
 
 import com.flowy.explore.foundation.RootShellRunner
 import com.flowy.explore.foundation.TimeHelper
-import com.flowy.explore.runtime.AccessibilitySnapshot
+import com.flowy.explore.foundation.executor.AccessibilitySource
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.StringReader
@@ -11,34 +11,32 @@ import org.xml.sax.InputSource
 
 /**
  * 用 root 权限执行 `uiautomator dump` 获取当前页面 UI 节点树，
- * 解析 XML 产出和 AccessibilitySnapshot 兼容的 JSON 结构，
+ * 解析 XML 产出和 AccessibilitySource 兼容的 JSON 结构，
  * 使得 FilterTargetsBlock / EvaluateAnchorBlock 可以无缝消费。
+ *
+ * 不再直接依赖 runtime.AccessibilitySnapshot（已被 interface 封装）。
  */
 class DumpUiTreeRootBlock(
   private val runRoot: (String, Long) -> RootShellRunner.Result = { cmd, timeoutMs -> RootShellRunner().run(cmd, timeoutMs) },
   private val now: () -> String = TimeHelper::now,
-) {
-  fun run(): AccessibilitySnapshot {
+) : AccessibilitySource {
+  override fun currentJson(): JSONObject? {
     val tmpPath = "/data/local/tmp/flowy-ui-dump.xml"
     val result = runRoot("uiautomator dump $tmpPath && cat $tmpPath", 15_000)
-    check(result.exitCode == 0) { "ROOT_UI_DUMP_FAILED" }
-    val raw = result.stdoutText()
-    val xmlContent = extractXml(raw)
-    val snapshot = parseXmlToSnapshot(xmlContent)
-    return AccessibilitySnapshot(
-      capturedAt = now(),
-      packageName = snapshot.optString("packageName").ifBlank { null },
-      windowTitle = null,
-      rawJson = snapshot.toString(),
-    )
+    return if (result.exitCode == 0) parseRawOutput(result.stdoutText()) else null
   }
 
-  private fun extractXml(raw: String): String {
+  private fun parseRawOutput(raw: String): JSONObject? {
+    val xml = extractXml(raw) ?: return null
+    return parseXmlToSnapshot(xml)
+  }
+
+  private fun extractXml(raw: String): String? {
     val start = raw.indexOf("<?xml")
     if (start >= 0) return raw.substring(start)
     val altStart = raw.indexOf("<hierarchy")
     if (altStart >= 0) return raw.substring(altStart)
-    error("ROOT_UI_DUMP_NO_XML")
+    return null
   }
 
   private fun parseXmlToSnapshot(xml: String): JSONObject {

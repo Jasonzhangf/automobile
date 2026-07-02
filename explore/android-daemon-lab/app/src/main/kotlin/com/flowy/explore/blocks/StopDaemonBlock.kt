@@ -1,14 +1,13 @@
 package com.flowy.explore.blocks
 
-import android.content.Context
-import android.content.Intent
-import com.flowy.explore.runtime.DaemonForegroundService
+import com.flowy.explore.foundation.executor.ServiceController
+import org.json.JSONObject
 
-class StopDaemonBlock(private val context: Context) {
-  fun run() {
-    val intent = Intent(context, DaemonForegroundService::class.java).apply {
-      action = DaemonForegroundService.ACTION_STOP
-    }
-    context.startService(intent)
+class StopDaemonBlock(
+  private val serviceController: ServiceController,
+) {
+  fun run(payload: JSONObject): String {
+    check(serviceController.stop()) { "STOP_DAEMON_FAILED" }
+    return "daemon-stopped"
   }
 }

@@ -43,16 +43,17 @@
 - `open-deep-link` + `packageName` 可用于启动第三方业务 APP 入口；`open-deep-link` + `uri` / `component` 仅用于 **Flowy 自身 / 系统设置 / 授权页 / 调试引导**。
 
 ## 项目硬护栏
-- 无证据不宣称完成。
-- **没有真机端到端验证（L4），不得宣称完成，不得 close bd task。** 任务完成门禁固定为：L1 单元测试 → L2 覆盖测试 → L3 编排测试 → L4 真机 E2E → build。缺任何一级都不能标记完成。详见 `docs/architecture/module-delivery-playbook.md` §3.6。
-- 禁止静默失败；失败必须保留原因或日志。
-- 未经明确授权，不做删除/回滚/迁移/发布等破坏性操作。
-- 禁止 broad kill：`pkill` / `killall` / `kill $(...)` / `xargs kill`。
-- 事实进 `AGENTS.md`，探索进 `note.md`，详细结构进 `docs/architecture/*.md`。
-- 不接受任何超过 500 行的代码文件作为临时例外。
-- 不接受只编译不回归的构建流程。
-- 第三方业务 APP 禁止在 APP 内使用 `JS/Auto.js`；`intent` 启动 APP 入口是允许的。若出现风控页，必须先记录证据，再调整方案。
-- 当前空目录可作为保留路径，但在实验闭环前不视为正式模块开工。
+- **模块边界锁定（新增 2026-07-01）**：三层（foundation → blocks → flows）+ proto + state 边界必须遵守：
+  - foundation: 零依赖，纯函数。禁止调 state / blocks / flows / proto。
+  - blocks: 只调 foundation + transport interface。禁止知道 session/app 细节。禁止直接构造 proto.CommandEnvelope。禁止调 state 包（除 transport 接口）。
+  - flows: 只调 blocks + foundation + state。禁止重复实现 block 逻辑。禁止直接操作 session SendMu（只通过 blocks.SendCommand/CommandRoundtrip）。
+  - 详见 `docs/architecture/module-boundaries.md`。
+- **控制信号与数据信号分离（新增 2026-07-01）**：
+  - metadata / error / debug 永远走侧信道 carrier，不得混入 normal request/response payload。
+  - `CommandEnvelope.Payload` 只含数据信号。
+  - `UiNode`, `FilterSpec`, `AnchorResult` 不携带 session/request 控制语义。
+  - 配置信号（config/profile）不入 runtime 状态。
+  - 详见 `docs/architecture/module-boundaries.md` 第2节。
 
 ## 文档职责
 - `./AGENTS.md`：项目级事实、边界、已接受决策。

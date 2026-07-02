@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flowy.dev/page-model/filter-spec.schema.json",
+  "title": "FilterSpec",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "filterId": {"type": "string"},
+    "kind": {"type": "string", "enum": ["actionable", "scrollable", "input", "card_like", "image_like", "blocker"]},
+    "className": {"type": "string"},
+    "textContains": {"type": "string"},
+    "textMatches": {"type": "string"},
+    "descContains": {"type": "string"},
+    "descMatches": {"type": "string"},
+    "notDesc": {"type": "boolean"},
+    "minTextLength": {"type": "integer", "minimum": 0},
+    "maxTextLength": {"type": "integer", "minimum": 0},
+    "clickable": {"type": ["boolean", "null"]},
+    "editable": {"type": ["boolean", "null"]},
+    "scrollable": {"type": ["boolean", "null"]},
+    "selected": {"type": ["boolean", "null"]},
+    "hasBounds": {"type": "boolean"},
+    "selectStrategy": {"type": "string", "enum": ["first_best", "top_most", "longest_text", "all_visible"]}
+  }
+}

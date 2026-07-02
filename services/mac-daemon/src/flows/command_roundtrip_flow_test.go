@@ -79,9 +79,18 @@ func TestCommandRoundtripPersistsArtifacts(t *testing.T) {
 		_ = conn.WriteJSON(response)
 	}()
 
+	now := time.Now()
 	body, _ := json.Marshal(proto.CommandDispatchRequest{
 		DeviceID: "android-local-01",
-		Command:  proto.CommandEnvelope{Command: "ping", Payload: map[string]any{}},
+		Command: proto.CommandEnvelope{
+			ProtocolVersion: "exp01",
+			RequestID:       "req-1-abc-1700000000",
+			RunID:           "run-2026-07-01-xyz-ping",
+			Command:         "ping",
+			SentAt:          now.Format(time.RFC3339),
+			TimeoutMs:       10000,
+			Payload:         map[string]any{},
+		},
 	})
 	resp, err := http.Post(server.URL+"/exp01/command", "application/json", bytes.NewReader(body))
 	if err != nil {
@@ -92,12 +101,21 @@ func TestCommandRoundtripPersistsArtifacts(t *testing.T) {
 		t.Fatalf("expected 200, got %d", resp.StatusCode)
 	}
 
-	dateDir := time.Now().Format("2006-01-02")
-	entries, err := os.ReadDir(filepath.Join(artifactRoot, dateDir))
+	// Find the actual run directory created
+	entries, err := os.ReadDir(artifactRoot)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("expected one date dir, err=%v len=%d", err, len(entries))
+	}
+	dateDir := entries[0].Name()
+	runEntries, err := os.ReadDir(filepath.Join(artifactRoot, dateDir))
+	if err != nil || len(runEntries) != 1 {
+		t.Fatalf("expected one run dir, err=%v len=%d", err, len(runEntries))
+	}
+	runDir := filepath.Join(artifactRoot, dateDir, runEntries[0].Name())
 	if err != nil || len(entries) != 1 {
 		t.Fatalf("expected one run dir, err=%v len=%d", err, len(entries))
 	}
-	runDir := filepath.Join(artifactRoot, dateDir, entries[0].Name())
+
 	for _, name := range []string{"manifest.json", "response.json", "logs.txt"} {
 		if _, statErr := os.Stat(filepath.Join(runDir, name)); statErr != nil {
 			t.Fatalf("expected %s: %v", name, statErr)

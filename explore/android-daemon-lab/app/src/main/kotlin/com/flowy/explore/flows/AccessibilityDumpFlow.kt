@@ -24,16 +24,10 @@ class AccessibilityDumpFlow(
     appendLogBlock.info("accessibility_dump_started", "dumping accessibility tree", requestId, runId, command)
     try {
       if (!accessibilityStatusReader.isEnabled()) error("ACCESSIBILITY_SERVICE_DISABLED")
-      val observedPage = observePageBlock.observe(
-        requestId = requestId,
-        runId = runId,
-        command = command,
-        observerSpec = JSONObject().put("requireAccessibility", true),
-      )
-      val snapshot = observedPage.accessibilitySnapshot ?: error("ACCESSIBILITY_ROOT_UNAVAILABLE")
+      val observedPage = ObservePageBlock().run()
+      val rawJson = observedPage.rawJson
       val artifacts = JSONArray().apply {
-        put(upload(requestId, runId, command, "accessibility-raw", "accessibility-raw.json", snapshot.rawJson.toByteArray()))
-        put(upload(requestId, runId, command, "page-context", "page-context.json", observedPage.pageContext.toString(2).toByteArray()))
+        put(upload(requestId, runId, command, "accessibility-raw", "accessibility-raw.json", rawJson.toString().toByteArray()))
       }
       appendLogBlock.info("accessibility_dump_finished", "dumped accessibility tree", requestId, runId, command)
       wsClientAdapter.send(successResponse(requestId, runId, command, startedAt, artifacts).toString())

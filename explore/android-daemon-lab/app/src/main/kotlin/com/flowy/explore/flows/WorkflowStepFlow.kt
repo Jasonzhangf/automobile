@@ -13,7 +13,6 @@ class WorkflowStepFlow(
   private val logError: (String, String, String, String, String) -> Unit,
   private val versionName: () -> String,
   private val sendResponse: (String) -> Boolean,
-  private val observePage: (String, String, String, JSONObject) -> ObservedPageState,
   private val filterTargets: (ObservedPageState, JSONObject) -> JSONObject,
   private val evaluateAnchor: (ObservedPageState, JSONObject) -> JSONObject,
   private val executeOperation: (String, JSONObject, String) -> JSONObject,
@@ -33,7 +32,7 @@ class WorkflowStepFlow(
       val operationKind = operationPlan.optString("kind").ifBlank { error("OPERATION_KIND_MISSING") }
       val operationId = operationPlan.optString("operationId").ifBlank { operationKind }
       val anchorPolicy = payload.optJSONObject("anchorPolicy") ?: JSONObject()
-      val preObserved = observePage(requestId, runId, "observe-page", observerSpec)
+      val preObserved = observePage()
       emitWorkflowEvent("page.observed", requestId, runId, preObserved.pageContext)
       val filtered = requireOk(filterTargets(preObserved, targetFilter), "FILTER_TARGETS_FAILED")
       val selectedTarget = selectedTarget(filtered)
@@ -136,13 +135,13 @@ class WorkflowStepFlow(
     policyJson: JSONObject?,
   ): PostObserveResult {
     if (postAnchor == null) {
-      return PostObserveResult(pageState = observePage(requestId, runId, "observe-page", observerSpec))
+      return PostObserveResult(pageState = observePage())
     }
     val policy = policyJson ?: JSONObject()
     val maxAttempts = policy.optInt("maxAttempts", 6).coerceAtLeast(1)
     val pollIntervalMs = policy.optLong("pollIntervalMs", 350L).coerceAtLeast(0L)
     repeat(maxAttempts) { index ->
-      val observed = observePage(requestId, runId, "observe-page", observerSpec)
+      val observed = observePage()
       val evaluated = requireOk(evaluateAnchor(observed, copyJson(postAnchor).apply { put("phase", "post") }), "ANCHOR_EVALUATION_FAILED")
       if (evaluated.optBoolean("matched")) {
         return PostObserveResult(pageState = observed, anchorOutput = evaluated)

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flowy.dev/protocol/control/response-envelope.schema.json",
+  "title": "ResponseEnvelope",
+  "type": "object",
+  "required": ["protocolVersion", "requestId", "runId", "command", "status", "startedAt", "finishedAt", "durationMs", "device", "app", "artifacts", "error", "message"],
+  "additionalProperties": false,
+  "properties": {
+    "protocolVersion": {"type": "string", "const": "exp01"},
+    "requestId": {"type": "string"},
+    "runId": {"type": "string"},
+    "command": {"type": "string"},
+    "status": {"type": "string", "enum": ["ok", "error", "timeout", "aborted"]},
+    "startedAt": {"type": "string", "format": "date-time"},
+    "finishedAt": {"type": "string", "format": "date-time"},
+    "durationMs": {"type": "integer", "minimum": 0},
+    "device": {
+      "type": "object",
+      "required": ["deviceId"],
+      "properties": {
+        "deviceId": {"type": "string"},
+        "model": {"type": "string"},
+        "androidVersion": {"type": "string"}
+      }
+    },
+    "app": {
+      "type": "object",
+      "required": ["packageName", "runtimeVersion"],
+      "properties": {
+        "packageName": {"type": "string"},
+        "runtimeVersion": {"type": "string"}
+      }
+    },
+    "artifacts": {"type": "array", "items": {"$ref": "artifact-descriptor.schema.json"}},
+    "error": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "error-object.schema.json"}
+      ]
+    },
+    "message": {"type": "string"},
+    "inlineLogs": {"type": "array", "items": {"$ref": "log-entry.schema.json"}}
+  }
+}

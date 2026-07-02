@@ -16,7 +16,7 @@ class FilterTargetsBlock(
     return try {
       val selector = selectorFromInput(input)
       if (!selector.hasConstraints()) error("FILTER_SELECTOR_MISSING")
-      val nodes = AccessibilityTargeting.findMatchingNodes(pageState.accessibilityJson(), selector)
+      val nodes = AccessibilityTargeting.findMatchingNodes(pageState.rawJson, selector)
       if (nodes.isEmpty()) error("TARGET_NOT_FOUND")
       val selectionPolicy = input.optJSONObject("selectionPolicy") ?: input.optJSONObject("selection")
       val selectedIndex = resolveSelectedIndex(nodes.size, selectionPolicy)

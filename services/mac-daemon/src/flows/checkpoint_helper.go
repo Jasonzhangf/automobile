@@ -23,7 +23,7 @@ func WriteFlowCheckpoint(checkpointDir string, fc *FlowContext) {
 		ErrorCount:     countErrors(fc.Results),
 	}
 	if fc.CurrentItem != nil {
-		cp.CurrentItemID = fc.computeItemID(*fc.CurrentItem)
+		cp.CurrentItemID = fc.itemIDFromMatch(*fc.CurrentItem)
 	}
 	// Collect completed IDs
 	for _, r := range fc.Results {

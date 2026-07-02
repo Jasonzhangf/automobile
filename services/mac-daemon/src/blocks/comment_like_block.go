@@ -10,24 +10,22 @@ import (
 )
 
 // CommentLikeTarget identifies which comment's like button to operate on.
-// Priority: Index (0-based among comment like buttons) > AuthorContains > ContentContains.
 type CommentLikeTarget struct {
-	Index           int    `json:"index,omitempty"`           // 0-based index among all comment like buttons
-	AuthorContains  string `json:"authorContains,omitempty"` // match comment author text
-	ContentContains string `json:"contentContains,omitempty"` // match comment content text
+	Index           int    `json:"index,omitempty"`
+	AuthorContains  string `json:"authorContains,omitempty"`
+	ContentContains string `json:"contentContains,omitempty"`
 }
 
 // CommentLikeInfo describes a detected comment like button on screen.
 type CommentLikeInfo struct {
-	Index      int  `json:"index"`
-	Selected   bool `json:"selected"`   // ImageView.selected
-	Count      int  `json:"count"`      // TextView number
-	CenterX    int  `json:"centerX"`
-	CenterY    int  `json:"centerY"`
+	Index    int  `json:"index"`
+	Selected bool `json:"selected"`
+	Count    int  `json:"count"`
+	CenterX  int  `json:"centerX"`
+	CenterY  int  `json:"centerY"`
 }
 
 // DetectCommentLikes scans the flat node list for comment like buttons.
-// Pattern: LinearLayout(clickable=true, left>1000) with child ImageView + child TextView(digit).
 func DetectCommentLikes(nodes []foundation.UiNode) []CommentLikeInfo {
 	var results []CommentLikeInfo
 	idx := 0
@@ -38,7 +36,6 @@ func DetectCommentLikes(nodes []foundation.UiNode) []CommentLikeInfo {
 		if n.BoundsInScreen.Left <= 1000 {
 			continue
 		}
-		// Found a candidate LinearLayout. Look for overlapping ImageView and digit-TextView.
 		hasImg := false
 		imgSelected := false
 		count := 0
@@ -82,13 +79,23 @@ func CommentLikeBlock(
 	backend OperationBackend,
 	timeoutMs int,
 ) (*CommentLikeInfo, error) {
-	// 1. Observe
-	obs, err := ObservePage(session, app, artifactRoot, timeoutMs)
+	tr := MakeTransport(session, app)
+	return commentLikeBlockWithTransport(tr, artifactRoot, target, desired, backend, timeoutMs)
+}
+
+func commentLikeBlockWithTransport(
+	tr *Transport,
+	artifactRoot string,
+	target CommentLikeTarget,
+	desired bool,
+	backend OperationBackend,
+	timeoutMs int,
+) (*CommentLikeInfo, error) {
+	obs, err := observePageWithTransport(tr, artifactRoot, timeoutMs)
 	if err != nil {
 		return nil, fmt.Errorf("comment-like observe: %w", err)
 	}
 
-	// 2. Find target comment like button
 	likes := DetectCommentLikes(obs.Nodes)
 	if len(likes) == 0 {
 		return nil, fmt.Errorf("comment-like: no comment like buttons found")
@@ -99,20 +106,17 @@ func CommentLikeBlock(
 		return nil, err
 	}
 
-	// 3. Check if already in desired state
 	if btn.Selected == desired {
 		return btn, nil
 	}
 
-	// 4. Tap
-	if err := TapBlock(session, app, artifactRoot,
+	if err := tapWithTransport(tr, artifactRoot,
 		TapTarget{X: &btn.CenterX, Y: &btn.CenterY}, backend, timeoutMs); err != nil {
 		return nil, fmt.Errorf("comment-like tap: %w", err)
 	}
 	time.Sleep(foundation.OperationDelay())
 
-	// 5. Verify
-	obs2, err := ObservePage(session, app, artifactRoot, timeoutMs)
+	obs2, err := observePageWithTransport(tr, artifactRoot, timeoutMs)
 	if err != nil {
 		return nil, fmt.Errorf("comment-like verify observe: %w", err)
 	}
@@ -132,10 +136,6 @@ func selectCommentLike(nodes []foundation.UiNode, likes []CommentLikeInfo, targe
 		return &likes[target.Index], nil
 	}
 	if target.AuthorContains != "" || target.ContentContains != "" {
-		// Find which comment index corresponds to the author/content match.
-		// Walk the node list: each comment has author (clickable TextView above the like area),
-		// then content (longer TextView), then the like button area.
-		// We match by proximity: find the comment text, then pick the closest like button below it.
 		matchTop := -1
 		for _, n := range nodes {
 			if n.BoundsInScreen == nil {
@@ -151,7 +151,6 @@ func selectCommentLike(nodes []foundation.UiNode, likes []CommentLikeInfo, targe
 			}
 		}
 		if matchTop >= 0 {
-			// Pick the first like button whose top is >= matchTop
 			for i := range likes {
 				if likes[i].CenterY >= matchTop {
 					return &likes[i], nil
@@ -159,7 +158,6 @@ func selectCommentLike(nodes []foundation.UiNode, likes []CommentLikeInfo, targe
 			}
 		}
 	}
-	// Default: first like button
 	if len(likes) > 0 {
 		return &likes[0], nil
 	}

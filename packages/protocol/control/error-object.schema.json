@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flowy.dev/protocol/control/error-object.schema.json",
+  "title": "ErrorObject",
+  "type": "object",
+  "required": ["code", "message"],
+  "properties": {
+    "code": {
+      "type": "string",
+      "pattern": "^[A-Z_]+$",
+      "description": "Stable error code (UPPER_SNAKE_CASE)"
+    },
+    "message": {"type": "string"},
+    "details": {"type": "object", "additionalProperties": true}
+  }
+}

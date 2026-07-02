@@ -12,6 +12,7 @@ import com.flowy.explore.R
 import com.flowy.explore.blocks.StartDaemonBlock
 import com.flowy.explore.blocks.StartOverlayWorkbenchBlock
 import com.flowy.explore.blocks.StopDaemonBlock
+import com.flowy.explore.runtime.adapter.DaemonServiceController
 import com.flowy.explore.foundation.DevServerOverrideStore
 import com.flowy.explore.foundation.DevServerReader
 
@@ -43,8 +44,8 @@ class DaemonConfigActivity : AppCompatActivity() {
     }
     overrideStore.saveHost(host)
     overrideStore.savePort(port)
-    StopDaemonBlock(this).run()
-    window.decorView.postDelayed({ StartDaemonBlock(this).run() }, 250L)
+    StopDaemonBlock(DaemonServiceController(this)).run(org.json.JSONObject())
+    window.decorView.postDelayed({ StartDaemonBlock(DaemonServiceController(this)).run(org.json.JSONObject()) }, 250L)
     toast("连接配置已更新")
     finish()
   }

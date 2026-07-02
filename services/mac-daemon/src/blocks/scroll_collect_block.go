@@ -10,11 +10,11 @@ import (
 
 // ScrollCollectConfig controls the scroll-and-collect loop.
 type ScrollCollectConfig struct {
-	MaxScrolls    int    `json:"maxScrolls"`    // max scroll attempts (0 = default 30)
-	Backend       string `json:"backend"`       // "root" or "accessibility"
-	ScrollDelayMs int    `json:"scrollDelayMs"` // min delay between scrolls (default 800)
-	ScrollJitterMs int   `json:"scrollJitterMs"` // random jitter added to delay (default 700)
-	TimeoutMs     int    `json:"timeoutMs"`     // per-command timeout
+	MaxScrolls     int    `json:"maxScrolls"`
+	Backend        string `json:"backend"`
+	ScrollDelayMs  int    `json:"scrollDelayMs"`
+	ScrollJitterMs int    `json:"scrollJitterMs"`
+	TimeoutMs      int    `json:"timeoutMs"`
 }
 
 // DefaultScrollCollectConfig returns sensible defaults.
@@ -34,15 +34,22 @@ type ScrollCollectResult struct {
 	ScrollsDone  int                       `json:"scrollsDone"`
 	BottomSignal foundation.BottomSignal   `json:"bottomSignal"`
 	BottomReason string                    `json:"bottomReason"`
-	AllTexts     []string                  `json:"allTexts"` // all unique texts seen
+	AllTexts     []string                  `json:"allTexts"`
 }
 
-// ScrollCollectBlock runs the scroll-dump-extract loop on a detail page.
-// It scrolls through the page collecting all visible comments/texts until
-// bottom is detected or maxScrolls is reached.
+// ScrollCollectBlock runs the scroll-dump-extract loop.
 func ScrollCollectBlock(
 	session *state.ClientSession,
 	app *state.AppState,
+	artifactRoot string,
+	cfg ScrollCollectConfig,
+) (*ScrollCollectResult, error) {
+	tr := MakeTransport(session, app)
+	return scrollCollectBlockWithTransport(tr, artifactRoot, cfg)
+}
+
+func scrollCollectBlockWithTransport(
+	tr *Transport,
 	artifactRoot string,
 	cfg ScrollCollectConfig,
 ) (*ScrollCollectResult, error) {
@@ -62,18 +69,15 @@ func ScrollCollectBlock(
 	seenTexts := make(map[string]bool)
 
 	for round := 0; round < cfg.MaxScrolls; round++ {
-		// 1. Observe current page
-		obs, err := ObservePage(session, app, artifactRoot, cfg.TimeoutMs)
+		obs, err := observePageWithTransport(tr, artifactRoot, cfg.TimeoutMs)
 		if err != nil {
 			if round == 0 {
 				return nil, fmt.Errorf("scroll-collect: initial observe failed: %w", err)
 			}
-			// Non-fatal: retry next round after delay
-			jitterSleep(cfg.ScrollDelayMs, cfg.ScrollJitterMs)
+			time.Sleep(foundation.RandomDuration(cfg.ScrollDelayMs, cfg.ScrollDelayMs+cfg.ScrollJitterMs))
 			continue
 		}
 
-		// 2. Extract comments from current view
 		comments := foundation.ExtractComments(obs.Nodes)
 		for _, c := range comments {
 			key := c.Author + "|" + c.Content
@@ -83,7 +87,6 @@ func ScrollCollectBlock(
 			}
 		}
 
-		// 3. Collect all unique texts
 		for _, n := range obs.Nodes {
 			t := n.Text
 			if t != "" && !seenTexts[t] {
@@ -91,7 +94,6 @@ func ScrollCollectBlock(
 			}
 		}
 
-		// 4. Check bottom
 		isBottom, signal, reason := detector.Check(obs.Nodes)
 		if isBottom {
 			allTexts := make([]string, 0, len(seenTexts))
@@ -107,22 +109,16 @@ func ScrollCollectBlock(
 			}, nil
 		}
 
-		// 5. Scroll forward
-		if err := ScrollBlock(session, app, artifactRoot,
-			ScrollTarget{}, "forward", backend, cfg.TimeoutMs); err != nil {
-			// Scroll failed — could be at bottom or error
+		if err := scrollWithTransport(tr, artifactRoot, ScrollTarget{}, "forward", backend, cfg.TimeoutMs); err != nil {
 			if round > 0 {
-				// Try one more observe to confirm
 				break
 			}
 			return nil, fmt.Errorf("scroll-collect: scroll failed: %w", err)
 		}
 
-		// 6. Random delay
-		jitterSleep(cfg.ScrollDelayMs, cfg.ScrollJitterMs)
+		time.Sleep(foundation.RandomDuration(cfg.ScrollDelayMs, cfg.ScrollDelayMs+cfg.ScrollJitterMs))
 	}
 
-	// Max scrolls reached
 	allTexts := make([]string, 0, len(seenTexts))
 	for k := range seenTexts {
 		allTexts = append(allTexts, k)
@@ -132,8 +128,4 @@ func ScrollCollectBlock(
 		ScrollsDone: cfg.MaxScrolls,
 		AllTexts:    allTexts,
 	}, nil
-}
-
-func jitterSleep(baseMs, jitterMs int) {
-	time.Sleep(foundation.RandomDuration(baseMs, baseMs+jitterMs))
 }

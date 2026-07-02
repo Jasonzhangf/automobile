@@ -11,6 +11,7 @@ import (
 	"flowy/services/mac-daemon/src/state"
 )
 
+// CommandRoundtripHandler dispatches a single command to a device and waits for the response.
 func CommandRoundtripHandler(app *state.AppState) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		var dispatch proto.CommandDispatchRequest
@@ -35,6 +36,12 @@ func CommandRoundtripHandler(app *state.AppState) http.HandlerFunc {
 			dispatch.Command.TimeoutMs = 10000
 		}
 
+		// Validate at HTTP boundary (fail-fast, no fallback)
+		if err := proto.DefaultValidator().ValidateCommandEnvelope(dispatch.Command); err != nil {
+			http.Error(writer, "invalid command envelope: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
 		session, ok := app.Client(dispatch.DeviceID)
 		if !ok {
 			http.Error(writer, "device not connected", http.StatusNotFound)
@@ -50,6 +57,10 @@ func CommandRoundtripHandler(app *state.AppState) http.HandlerFunc {
 
 		select {
 		case response := <-pending:
+			if err := proto.DefaultValidator().ValidateResponseEnvelope(response); err != nil {
+				http.Error(writer, "invalid response from device: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
 			if _, err := FinalizeRun(app.ArtifactRoot(), response); err != nil {
 				http.Error(writer, err.Error(), http.StatusInternalServerError)
 				return

@@ -11,31 +11,23 @@ import (
 
 // ToggleAction describes a toggle operation (like / collect / follow).
 type ToggleAction struct {
-	// ActionName is the human label (like, collect, follow).
-	ActionName string `json:"actionName"`
-	// ToggledDesc is the descContains / textContains value when the action is ALREADY done.
-	// e.g. "已点赞", "已收藏", "已关注".
-	ToggledDesc string `json:"toggledDesc"`
-	// ToggledUseText when true matches text instead of contentDescription.
-	ToggledUseText bool `json:"toggledUseText,omitempty"`
-	// UntoggledDesc is the descContains / textContains value when NOT done.
-	// e.g. "点赞", "收藏", "关注".
-	UntoggledDesc string `json:"untoggledDesc"`
-	// UntoggledUseText when true matches text instead of contentDescription.
+	ActionName     string `json:"actionName"`
+	ToggledDesc    string `json:"toggledDesc"`
+	ToggledUseText bool   `json:"toggledUseText,omitempty"`
+	UntoggledDesc  string `json:"untoggledDesc"`
 	UntoggledUseText bool `json:"untoggledUseText,omitempty"`
 }
 
 // ToggleResult holds the outcome of a toggle operation.
 type ToggleResult struct {
 	ActionName string `json:"actionName"`
-	Before     bool   `json:"before"`  // true = was already toggled
-	After      bool   `json:"after"`   // true = now toggled
-	Toggled    bool   `json:"toggled"` // final state matches desired
+	Before     bool   `json:"before"`
+	After      bool   `json:"after"`
+	Toggled    bool   `json:"toggled"`
 }
 
 // ToggleActionBlock observes the page, determines current toggle state,
 // taps to reach the desired state, and verifies the result.
-// desired=true means "ensure toggled on"; desired=false means "ensure toggled off".
 func ToggleActionBlock(
 	session *state.ClientSession,
 	app *state.AppState,
@@ -45,8 +37,19 @@ func ToggleActionBlock(
 	backend OperationBackend,
 	timeoutMs int,
 ) (*ToggleResult, error) {
-	// 1. Observe current state.
-	isToggled, err := detectToggleState(session, app, artifactRoot, action, timeoutMs)
+	tr := MakeTransport(session, app)
+	return toggleActionBlockWithTransport(tr, artifactRoot, action, desired, backend, timeoutMs)
+}
+
+func toggleActionBlockWithTransport(
+	tr *Transport,
+	artifactRoot string,
+	action ToggleAction,
+	desired bool,
+	backend OperationBackend,
+	timeoutMs int,
+) (*ToggleResult, error) {
+	isToggled, err := detectToggleStateWithTransport(tr, artifactRoot, action, timeoutMs)
 	if err != nil {
 		return nil, fmt.Errorf("toggle detect: %w", err)
 	}
@@ -56,21 +59,18 @@ func ToggleActionBlock(
 		Before:     isToggled,
 	}
 
-	// 2. If already in desired state, nothing to do.
 	if isToggled == desired {
 		result.After = isToggled
 		result.Toggled = true
 		return result, nil
 	}
 
-	// 3. Tap the button to toggle.
-	if err := tapToggleButton(session, app, artifactRoot, action, timeoutMs, backend); err != nil {
+	if err := tapToggleButtonWithTransport(tr, artifactRoot, action, timeoutMs, backend); err != nil {
 		return nil, fmt.Errorf("toggle tap: %w", err)
 	}
-	time.Sleep(foundation.OperationDelay()) // jitter after tap
+	time.Sleep(foundation.OperationDelay())
 
-	// 4. Verify new state.
-	newState, err := detectToggleState(session, app, artifactRoot, action, timeoutMs)
+	newState, err := detectToggleStateWithTransport(tr, artifactRoot, action, timeoutMs)
 	if err != nil {
 		return nil, fmt.Errorf("toggle verify: %w", err)
 	}
@@ -83,19 +83,16 @@ func ToggleActionBlock(
 	return result, nil
 }
 
-// detectToggleState observes the page and checks whether the toggled indicator exists.
-func detectToggleState(
-	session *state.ClientSession,
-	app *state.AppState,
+func detectToggleStateWithTransport(
+	tr *Transport,
 	artifactRoot string,
 	action ToggleAction,
 	timeoutMs int,
 ) (bool, error) {
-	obs, err := ObservePage(session, app, artifactRoot, timeoutMs)
+	obs, err := observePageWithTransport(tr, artifactRoot, timeoutMs)
 	if err != nil {
 		return false, err
 	}
-	// Search for the toggled indicator (e.g. "已点赞").
 	for _, n := range obs.Nodes {
 		if action.ToggledUseText {
 			if strings.Contains(n.Text, action.ToggledDesc) {
@@ -110,24 +107,17 @@ func detectToggleState(
 	return false, nil
 }
 
-// tapToggleButton finds and taps the toggle button.
-// Strategy: find the node matching the untoggled or toggled desc/text,
-// then tap its center.
-func tapToggleButton(
-	session *state.ClientSession,
-	app *state.AppState,
+func tapToggleButtonWithTransport(
+	tr *Transport,
 	artifactRoot string,
 	action ToggleAction,
 	timeoutMs int,
 	backend OperationBackend,
 ) error {
-	obs, err := ObservePage(session, app, artifactRoot, timeoutMs)
+	obs, err := observePageWithTransport(tr, artifactRoot, timeoutMs)
 	if err != nil {
 		return err
 	}
-	// Try to find the button. It might have either toggled or untoggled text.
-	// Look for a node whose className contains "Button" and desc/text contains
-	// either the toggled or untoggled prefix.
 	prefixes := []string{action.UntoggledDesc, action.ToggledDesc}
 	useText := action.UntoggledUseText || action.ToggledUseText
 
@@ -153,7 +143,7 @@ func tapToggleButton(
 		}
 		if match {
 			cx, cy := n.BoundsInScreen.Center()
-			return TapBlock(session, app, artifactRoot,
+			return tapWithTransport(tr, artifactRoot,
 				TapTarget{X: &cx, Y: &cy}, backend, timeoutMs)
 		}
 	}
