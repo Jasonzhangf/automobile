@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"flowy/services/mac-daemon/src/foundation"
 	"flowy/services/mac-daemon/src/proto"
@@ -25,21 +24,18 @@ type ObserveResult struct {
 // ObservePage sends a dump-ui-tree-root command to the Android device,
 // waits for the response, then reads and parses the artifact.
 func ObservePage(session *state.ClientSession, app *state.AppState, artifactRoot string, timeoutMs int) (*ObserveResult, error) {
-	now := time.Now()
-	requestID := foundation.NewRequestID(now, app.NextRequestSeq())
-	runID := foundation.NewRunID(now, "dump-ui-tree-root", "observe-page")
+	tr := makeTransport(session, app)
+	return observePageWithTransport(tr, artifactRoot, timeoutMs)
+}
 
-	cmd := proto.CommandEnvelope{
-		ProtocolVersion: "exp01",
-		RequestID:       requestID,
-		RunID:           runID,
-		Command:         "dump-ui-tree-root",
-		SentAt:          now.Format(time.RFC3339),
-		TimeoutMs:       timeoutMs,
-		Payload:         map[string]any{},
+// observePageWithTransport is the Transport-aware implementation of ObservePage.
+func observePageWithTransport(tr *Transport, artifactRoot string, timeoutMs int) (*ObserveResult, error) {
+	cmd := NewCommand(tr, proto.CmdDumpUiTreeRoot, map[string]any{})
+	if timeoutMs > 0 {
+		cmd.TimeoutMs = timeoutMs
 	}
 
-	response, err := CommandRoundtrip(session, app, cmd)
+	response, err := transportRoundtrip(tr, cmd)
 	if err != nil {
 		return nil, fmt.Errorf("observe page command failed: %w", err)
 	}
@@ -51,24 +47,35 @@ func ObservePage(session *state.ClientSession, app *state.AppState, artifactRoot
 		return nil, fmt.Errorf("observe page returned error: %s", errMsg)
 	}
 
-	// Read the root-ui-tree artifact from the run directory.
+	// Read the artifact from the first artifact file
+	if len(response.Artifacts) == 0 {
+		return nil, fmt.Errorf("observe page: no artifacts in response")
+	}
+	artifact := response.Artifacts[0]
 	runDir := foundation.RunDirFromRunID(artifactRoot, response.RunID)
-	treeData, err := os.ReadFile(filepath.Join(runDir, "root-ui-tree.json"))
+	artifactPath := filepath.Join(runDir, artifact.FileName)
+	data, err := os.ReadFile(artifactPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read root-ui-tree artifact: %w", err)
+		return nil, fmt.Errorf("observe page: read artifact: %w", err)
 	}
 
-	var treeDump foundation.UiTreeDump
-	if err := json.Unmarshal(treeData, &treeDump); err != nil {
-		return nil, fmt.Errorf("failed to parse root-ui-tree: %w", err)
+	var observeData struct {
+		PackageName string              `json:"packageName"`
+		Nodes       []foundation.UiNode `json:"nodes"`
+	}
+	if err := json.Unmarshal(data, &observeData); err != nil {
+		return nil, fmt.Errorf("observe page: parse artifact: %w", err)
+	}
+	if observeData.Nodes == nil {
+		observeData.Nodes = []foundation.UiNode{}
 	}
 
 	return &ObserveResult{
 		RunDir:      runDir,
 		RunID:       response.RunID,
 		RequestID:   response.RequestID,
-		PackageName: treeDump.PackageName,
-		Nodes:       treeDump.Nodes,
-		NodeCount:   len(treeDump.Nodes),
+		PackageName: observeData.PackageName,
+		Nodes:       observeData.Nodes,
+		NodeCount:   len(observeData.Nodes),
 	}, nil
 }

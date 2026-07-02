@@ -6,6 +6,7 @@ import (
 
 	"flowy/services/mac-daemon/src/blocks"
 	"flowy/services/mac-daemon/src/foundation"
+	"flowy/services/mac-daemon/src/proto"
 	"flowy/services/mac-daemon/src/state"
 )
 
@@ -161,7 +162,7 @@ func (fc *FlowContext) stateListEntry(backend blocks.OperationBackend) {
 
 func (fc *FlowContext) stateListEntrySearch(backend blocks.OperationBackend) {
 	// 1. Launch app via intent
-	fc.sendCommandToDevice("open-deep-link", map[string]any{"packageName": fc.Profile.PackageName})
+	fc.sendCommandToDevice(proto.CmdOpenDeepLink, map[string]any{"packageName": fc.Profile.PackageName})
 	time.Sleep(foundation.OperationDelay())
 
 	// 2. Pre-anchor: verify we're on the main page
@@ -195,7 +196,7 @@ func (fc *FlowContext) stateListEntrySearch(backend blocks.OperationBackend) {
 	time.Sleep(foundation.OperationDelay())
 
 	// 5. Press enter
-	fc.sendCommandToDevice("press-key", map[string]any{"keyCode": 66, "backend": backend})
+	fc.sendCommandToDevice(proto.CmdPressKey, map[string]any{"keyCode": 66, "backend": backend})
 	time.Sleep(foundation.OperationDelay())
 
 	// 6. Post-anchor: verify we're on search results
@@ -209,7 +210,7 @@ func (fc *FlowContext) stateListEntrySearch(backend blocks.OperationBackend) {
 }
 
 func (fc *FlowContext) stateListEntryTimeline(backend blocks.OperationBackend) {
-	fc.sendCommandToDevice("open-deep-link", map[string]any{"packageName": fc.Profile.PackageName})
+	fc.sendCommandToDevice(proto.CmdOpenDeepLink, map[string]any{"packageName": fc.Profile.PackageName})
 	time.Sleep(foundation.OperationDelay())
 
 	if !fc.anchorCheck(fc.Profile.ListAnchor, "list_entry_timeline") {
@@ -338,7 +339,7 @@ func (fc *FlowContext) stateDetailTask(backend blocks.OperationBackend) {
 func (fc *FlowContext) stateBackToList(backend blocks.OperationBackend) {
 	if err := blocks.BackBlock(fc.Session, fc.App, backend, 10000); err != nil {
 		// back failed — try restarting app
-		fc.sendCommandToDevice("open-deep-link", map[string]any{"packageName": fc.Profile.PackageName})
+		fc.sendCommandToDevice(proto.CmdOpenDeepLink, map[string]any{"packageName": fc.Profile.PackageName})
 		time.Sleep(foundation.OperationDelay())
 		fc.State = StateCheckContinue
 		return
@@ -364,6 +365,3 @@ func (fc *FlowContext) stateCheckContinue() {
 	fc.State = StatePickNext
 	fc.ScrollRetries = 0
 }
-
-// --- Helpers -------------------------------------------------------------
-
